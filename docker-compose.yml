@@ -1,0 +1,23 @@
+services:
+  reminder-agent:
+    build: .
+    container_name: whatsapp_reminder_agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=sqlite+aiosqlite:////data/reminders.db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - WHATSAPP_GATEWAY_TYPE=${WHATSAPP_GATEWAY_TYPE:-meta}
+      - META_PHONE_NUMBER_ID=${META_PHONE_NUMBER_ID}
+      - META_WHATSAPP_TOKEN=${META_WHATSAPP_TOKEN}
+      - META_VERIFY_TOKEN=${META_VERIFY_TOKEN:-my_secure_webhook_verify_token}
+    volumes:
+      - db_data:/data
+    env_file:
+      - .env
+
+volumes:
+  db_data:
