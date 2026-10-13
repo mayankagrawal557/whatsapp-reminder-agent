@@ -133,7 +133,7 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <span id="brand-clinic-title" class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">Apex Smiles Clinic</span>
+            <span id="brand-clinic-title" class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">Arovida Clinic</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 uppercase tracking-wider">Multi-Tenant SaaS</span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Automated WhatsApp AI Reminders & Two-Way Confirmation</p>
@@ -161,7 +161,7 @@
             <span id="tenant-avatar-text">C</span>
           </div>
           <div class="text-left text-xs pr-1">
-            <div class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px] sm:max-w-[140px]" id="tenant-name">Apex Smiles Clinic</div>
+            <div class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px] sm:max-w-[140px]" id="tenant-name">Arovida Clinic</div>
             <div class="text-[10px] text-slate-400 truncate max-w-[100px] sm:max-w-[140px]" id="tenant-email">demo@clinic.com</div>
           </div>
           <button onclick="openAuthModal()" class="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1 rounded-lg transition" title="Switch Practice / Sign In">
@@ -665,7 +665,7 @@
                   </div>
                   <div>
                     <div class="flex items-center gap-1">
-                      <h3 id="mockup-biz-title" class="font-bold text-xs leading-tight">Apex Smiles Clinic</h3>
+                      <h3 id="mockup-biz-title" class="font-bold text-xs leading-tight">Arovida Clinic</h3>
                       <svg class="w-3 h-3 text-emerald-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                     </div>
                     <p class="text-[10px] text-emerald-200">Verified WhatsApp Business</p>
@@ -687,7 +687,7 @@
                 <!-- Outbound Reminder Bubble -->
                 <div class="self-end max-w-[90%] bg-[#dcf8c6] dark:bg-[#056162] text-slate-900 dark:text-white p-3 rounded-2xl rounded-tr-none shadow-sm space-y-1 relative">
                   <p id="mockup-message-text" class="text-xs leading-relaxed font-normal">
-                    Hi Dr. Michael Vance! 👋 Just a quick reminder about your Dental Crown Replacement scheduled for Tomorrow at 3:15 PM with Apex Smiles Clinic. Reply 1 to Confirm or 2 to Reschedule.
+                    Hi Dr. Michael Vance! 👋 Just a quick reminder about your Dental Crown Replacement scheduled for Tomorrow at 3:15 PM with Arovida Clinic. Reply 1 to Confirm or 2 to Reschedule.
                   </p>
                   <div class="flex items-center justify-end gap-1 text-[10px] text-slate-500 dark:text-slate-300">
                     <span id="mockup-time">10:42 AM</span>
@@ -754,7 +754,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Clinic Display Name *</label>
-              <input type="text" id="cfg-biz-name" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white" placeholder="e.g. Apex Smiles Clinic">
+              <input type="text" id="cfg-biz-name" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white" placeholder="e.g. Arovida Clinic">
             </div>
 
             <div>
@@ -799,7 +799,7 @@
                 <span id="branding-preview-text">A</span>
               </div>
               <div>
-                <div id="branding-preview-name" class="font-bold text-sm text-slate-900 dark:text-white">Apex Smiles Clinic</div>
+                <div id="branding-preview-name" class="font-bold text-sm text-slate-900 dark:text-white">Arovida Clinic</div>
                 <div class="text-[11px] text-slate-500">Live preview of your header and customer avatar</div>
               </div>
             </div>
@@ -1152,10 +1152,10 @@
           currentAuthUser = await res.json();
           updateNavbarUser(currentAuthUser);
         } else {
-          updateNavbarUser({ business_name: 'Apex Smiles Clinic', email: 'demo@clinic.com' });
+          updateNavbarUser({ business_name: 'Arovida Clinic', email: 'demo@clinic.com' });
         }
       } catch {
-        updateNavbarUser({ business_name: 'Apex Smiles Clinic', email: 'demo@clinic.com' });
+        updateNavbarUser({ business_name: 'Arovida Clinic', email: 'demo@clinic.com' });
       }
       loadReminders();
       loadSettings();
@@ -1163,7 +1163,7 @@
 
     function updateNavbarUser(user) {
       if (!user) return;
-      const bizName = user.business_name || 'Apex Smiles Clinic';
+      const bizName = user.business_name || 'Arovida Clinic';
       const email = user.email || 'demo@clinic.com';
       const logoUrl = user.logo_url || '';
       const brandColor = user.brand_color || '#10b981';

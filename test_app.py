@@ -57,7 +57,7 @@ async def run_tests():
             service_name="Teeth Cleaning",
             notes="Please fast 2 hours before appointment",
             tone=tone,
-            business_name="Apex Smiles Clinic",
+            business_name="Arovida Clinic",
             business_type="Dental Clinic",
         )
         assert "Sarah Jenkins" in msg

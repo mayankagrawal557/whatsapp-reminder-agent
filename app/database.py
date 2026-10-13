@@ -320,7 +320,7 @@ async def init_db() -> None:
             hashed_pw = bcrypt.hashpw("demo123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             demo_user = User(
                 id=demo_user_id,
-                business_name="Apex Smiles Clinic",
+                business_name="Arovida Clinic",
                 email="demo@clinic.com",
                 password_hash=hashed_pw,
                 business_type="Dental Clinic",
@@ -328,8 +328,14 @@ async def init_db() -> None:
             )
             session.add(demo_user)
             await session.commit()
+        elif demo_user.business_name == "Apex Smiles Clinic":
+            demo_user.business_name = "Arovida Clinic"
+            await session.commit()
 
-        # Update any orphan reminders to point to demo_clinic
+        # Update any users or orphan reminders
+        await session.execute(
+            text("UPDATE users SET business_name = 'Arovida Clinic' WHERE business_name = 'Apex Smiles Clinic';")
+        )
         await session.execute(
             text("UPDATE reminders SET user_id = :uid WHERE user_id IS NULL;"),
             {"uid": demo_user.id},
