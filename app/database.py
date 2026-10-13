@@ -328,13 +328,13 @@ async def init_db() -> None:
             )
             session.add(demo_user)
             await session.commit()
-        elif demo_user.business_name == "Apex Smiles Clinic":
+        elif "Apex" in (demo_user.business_name or ""):
             demo_user.business_name = "Arovida Clinic"
             await session.commit()
 
-        # Update any users or orphan reminders
+        # Update any legacy Apex users or orphan reminders
         await session.execute(
-            text("UPDATE users SET business_name = 'Arovida Clinic' WHERE business_name = 'Apex Smiles Clinic';")
+            text("UPDATE users SET business_name = 'Arovida Clinic' WHERE business_name LIKE '%Apex%';")
         )
         await session.execute(
             text("UPDATE reminders SET user_id = :uid WHERE user_id IS NULL;"),
