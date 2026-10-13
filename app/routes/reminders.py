@@ -109,6 +109,10 @@ async def add_reminder(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    stored = await get_user_settings_dict(db, current_user.id)
+    default_country = stored.get("default_country_code") or settings.DEFAULT_COUNTRY_CODE or "+91"
+    clean_phone = normalize_phone_number(payload.phone, default_country_code=default_country)
+
     reminder_dispatch_time = _calculate_reminder_time(
         payload.appointment_datetime,
         payload.reminder_time,
@@ -121,7 +125,7 @@ async def add_reminder(
         user_id=current_user.id,
         client_id=payload.client_id or current_user.id,
         customer_name=payload.customer_name.strip(),
-        phone=payload.phone,
+        phone=clean_phone,
         service_name=payload.service_name.strip(),
         appointment_datetime=payload.appointment_datetime,
         reminder_time=reminder_dispatch_time,
@@ -194,6 +198,9 @@ async def bulk_upload_file(
     errors: List[BulkUploadRowError] = []
     created_ids: List[str] = []
 
+    stored_settings = await get_user_settings_dict(db, current_user.id)
+    clinic_country_code = stored_settings.get("default_country_code") or settings.DEFAULT_COUNTRY_CODE or "+91"
+
     for row_idx, row in enumerate(rows_data, start=1):
         total_received += 1
         lower_row = {str(k).strip().lower(): v for k, v in row.items() if k is not None}
@@ -230,7 +237,7 @@ async def bulk_upload_file(
             continue
 
         try:
-            clean_phone = normalize_phone_number(phone_raw, default_country_code=settings.DEFAULT_COUNTRY_CODE)
+            clean_phone = normalize_phone_number(phone_raw, default_country_code=clinic_country_code)
         except Exception as e:
             errors.append(BulkUploadRowError(row_number=row_idx, data=row, error=f"Invalid phone: {e}"))
             continue
@@ -516,3 +523,125 @@ async def dispatch_now():
     from app.scheduler import dispatch_due_reminders_task
     asyncio.create_task(dispatch_due_reminders_task())
     return {"message": "Immediate background dispatch scan initiated successfully."}
+
+
+@router.post("/seed-demo-data", summary="Seed 5 realistic demo appointments")
+@router.post("/api/reminders/seed-demo", summary="Seed 5 realistic demo appointments")
+async def seed_demo_appointments(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Instantly populates 5 realistic clinic appointments with diverse statuses:
+    - Confirmed (Green)
+    - Needs Reschedule (Purple)
+    - Sent / Dispatched (Blue)
+    - Scheduled / Pending (Amber)
+    - Confirmed (Green)
+    Allows salon and clinic owners to immediately view a populated dashboard with two-way WhatsApp interaction.
+    """
+    now = datetime.now(timezone.utc)
+    stored = await get_user_settings_dict(db, current_user.id)
+    biz_name = stored.get("business_name") or current_user.business_name or "Apex Smiles Clinic"
+
+    demo_records = [
+        {
+            "name": "Aarav Sharma",
+            "phone": "+919820123456",
+            "service": "Comprehensive Dental Scaling & Polish",
+            "appt_offset_hours": 18,
+            "tone": "friendly",
+            "status": "CONFIRMED",
+            "customer_reply": "1 - Confirmed, see you tomorrow morning!",
+            "replied_offset_mins": 35,
+            "notes": "Patient requested Dr. Mehta",
+            "message": f"Hi Aarav Sharma! 👋 Quick reminder of your Comprehensive Dental Scaling & Polish scheduled for Tomorrow at 10:30 AM with {biz_name}. Reply 1 to Confirm or 2 to Reschedule.",
+        },
+        {
+            "name": "Priya Patel",
+            "phone": "+919876543210",
+            "service": "HydraFacial Glow & Skin Rejuvenation",
+            "appt_offset_hours": 26,
+            "tone": "friendly",
+            "status": "NEEDS_RESCHEDULE",
+            "customer_reply": "2 please, I have an urgent meeting. Can we move to Friday?",
+            "replied_offset_mins": 15,
+            "notes": "First-time client, prefers evening slots",
+            "message": f"Hi Priya Patel! 👋 Just a gentle reminder about your HydraFacial Glow scheduled for Tomorrow at 2:15 PM with {biz_name}. Reply 1 to Confirm or 2 to Reschedule.",
+        },
+        {
+            "name": "Rohan Mehta",
+            "phone": "+919123456789",
+            "service": "Orthodontic Aligners Progress Check",
+            "appt_offset_hours": 12,
+            "tone": "formal",
+            "status": "SENT",
+            "customer_reply": None,
+            "replied_offset_mins": None,
+            "notes": "Bring aligner trays #4 and #5",
+            "message": f"Dear Rohan Mehta, this is a reminder for your Orthodontic Aligners Progress Check scheduled for Tomorrow at 11:00 AM with {biz_name}. Reply 1 to Confirm or 2 to Reschedule.",
+        },
+        {
+            "name": "Ananya Iyer",
+            "phone": "+919988776655",
+            "service": "Laser Hair Removal - Session 3",
+            "appt_offset_hours": 44,
+            "tone": "friendly",
+            "status": "PENDING",
+            "customer_reply": None,
+            "replied_offset_mins": None,
+            "notes": "Avoid sun exposure 24 hours prior",
+            "message": None,
+        },
+        {
+            "name": "Vikram Malhotra",
+            "phone": "+919811223344",
+            "service": "Annual Executive Health Consultation",
+            "appt_offset_hours": 8,
+            "tone": "formal",
+            "status": "CONFIRMED",
+            "customer_reply": "1 - Yes confirmed, fasting completed.",
+            "replied_offset_mins": 90,
+            "notes": "Fasting blood sugar test included",
+            "message": f"Dear Vikram Malhotra, reminder for your Annual Executive Health Consultation today at 4:30 PM with {biz_name}. Reply 1 to Confirm or 2 to Reschedule.",
+        },
+    ]
+
+    created_ids = []
+    for item in demo_records:
+        rem_id = str(uuid.uuid4())
+        appt_time = now + timedelta(hours=item["appt_offset_hours"])
+        dispatch_time = appt_time - timedelta(hours=24)
+        sent_at = now - timedelta(minutes=60) if item["status"] in ("SENT", "CONFIRMED", "NEEDS_RESCHEDULE") else None
+        replied_at = (now - timedelta(minutes=item["replied_offset_mins"])) if item["replied_offset_mins"] else None
+
+        reminder = Reminder(
+            id=rem_id,
+            user_id=current_user.id,
+            client_id=current_user.id,
+            customer_name=item["name"],
+            phone=item["phone"],
+            service_name=item["service"],
+            appointment_datetime=appt_time,
+            reminder_time=dispatch_time,
+            notes=item["notes"],
+            tone=item["tone"],
+            status=item["status"],
+            generated_message=item["message"],
+            whatsapp_message_id=f"wamid.demo.{uuid.uuid4().hex[:12]}" if sent_at else None,
+            attempts=1 if sent_at else 0,
+            sent_at=sent_at,
+            customer_reply=item["customer_reply"],
+            replied_at=replied_at,
+        )
+        db.add(reminder)
+        created_ids.append(rem_id)
+
+    await db.commit()
+    logger.info(f"Seeded {len(created_ids)} demo appointments for clinic [{current_user.id}]")
+    return {
+        "status": "success",
+        "message": f"Seeded {len(created_ids)} realistic appointments with diverse statuses.",
+        "count": len(created_ids),
+        "reminder_ids": created_ids,
+    }

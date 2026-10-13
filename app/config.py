@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_MAX_JITTER_SECONDS: float = 8.0
     MAX_BATCH_SIZE: int = 20
     DEFAULT_REMINDER_LEAD_HOURS: int = 24
-    DEFAULT_COUNTRY_CODE: str = ""
+    DEFAULT_COUNTRY_CODE: str = "+91"
 
     # Multi-tenant Defaults
     DEFAULT_CLIENT_ID: str = "default_tenant"

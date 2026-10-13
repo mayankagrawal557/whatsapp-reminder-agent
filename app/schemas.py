@@ -19,23 +19,60 @@ ReminderStatusType = Literal[
 ]
 
 
-def normalize_phone_number(phone: str, default_country_code: str = "") -> str:
+def normalize_phone_number(phone: str, default_country_code: str = "+91") -> str:
     """
-    Sanitize phone number to E.164-compatible format.
-    Removes whitespace, hyphens, parentheses, etc.
+    Sanitize phone number to E.164-compatible international format.
+    - Strips whitespace, hyphens, brackets, parentheses, dots.
+    - Automatically detects 10-digit numbers (e.g. '9876543210' or '(987) 654-3210')
+      and prepends '+91' (or configured clinic default_country_code).
+    - Automatically strips leading zero from 11-digit numbers (e.g. '09876543210') and prepends '+91'.
+    - Handles 12-digit numbers starting with '91' without '+' -> '+919876543210'.
+    - Handles 11-digit numbers starting with '1' without '+' -> '+14155552671'.
+    - Preserves existing valid country code prefixes if phone already starts with '+'.
     """
-    cleaned = re.sub(r"[^\d+]", "", phone.strip())
-    if not cleaned:
+    if not phone or not str(phone).strip():
         raise ValueError("Phone number cannot be empty.")
-    if not cleaned.startswith("+"):
-        if default_country_code:
-            code = default_country_code.strip()
-            if not code.startswith("+"):
-                code = "+" + code
-            cleaned = f"{code}{cleaned}"
-        else:
-            cleaned = f"+{cleaned}"
-    return cleaned
+
+    raw = str(phone).strip()
+    digits = re.sub(r"\D", "", raw)
+    if not digits:
+        raise ValueError(f"No valid digits found in phone number: '{phone}'")
+
+    code = (default_country_code or "+91").strip()
+    if not code.startswith("+"):
+        code = f"+{code}"
+    code_digits = re.sub(r"\D", "", code)
+
+    # If the user explicitly provided a '+' prefix, preserve it and its digits
+    if raw.startswith("+"):
+        return f"+{digits}"
+
+    # 10-digit standard mobile number (e.g. 9876543210)
+    if len(digits) == 10:
+        return f"{code}{digits}"
+
+    # 11-digit number with leading 0 (e.g. 09876543210)
+    if len(digits) == 11 and digits.startswith("0"):
+        return f"{code}{digits[1:]}"
+
+    # 12-digit Indian number without '+' (e.g. 919876543210)
+    if len(digits) == 12 and digits.startswith("91"):
+        return f"+{digits}"
+
+    # 11-digit North American number without '+' (e.g. 14155552671)
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+
+    # If already begins with the configured country code digits
+    if code_digits and digits.startswith(code_digits):
+        return f"+{digits}"
+
+    # Fallback: if <= 10 digits, prepend country code
+    if len(digits) <= 10:
+        return f"{code}{digits}"
+
+    # International number missing '+'
+    return f"+{digits}"
 
 
 class ClientCreate(BaseModel):
@@ -175,6 +212,7 @@ class SettingsPayload(BaseModel):
     business_type: Optional[str] = "Clinic / Service"
     default_tone: Optional[str] = "friendly"
     whatsapp_gateway_type: Optional[str] = "meta"
+    default_country_code: Optional[str] = "+91"
 
 
 class SettingsResponse(BaseModel):
@@ -186,6 +224,7 @@ class SettingsResponse(BaseModel):
     business_type: str = "Clinic / Service"
     default_tone: str = "friendly"
     whatsapp_gateway_type: str = "meta"
+    default_country_code: str = "+91"
     is_meta_configured: bool = False
     is_gemini_configured: bool = False
 

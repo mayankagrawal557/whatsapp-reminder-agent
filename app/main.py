@@ -5,6 +5,7 @@ Jinja2/HTML template rendering for the Web Dashboard, static assets, and REST ro
 """
 import logging
 import os
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -104,11 +105,31 @@ async def serve_dashboard():
 
 @app.get(
     "/health",
+    tags=["System"],
+    summary="Lightweight UptimeRobot ping & keep-alive monitor",
+)
+async def health_check():
+    """
+    Lightweight keep-alive health check returning HTTP 200 OK.
+    Designed for uptime monitors (e.g. UptimeRobot) pinging every 10 minutes
+    to prevent Render free instances from going to sleep.
+    """
+    return {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "app_name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "scheduler_running": is_scheduler_running(),
+    }
+
+
+@app.get(
+    "/health/full",
     response_model=HealthResponse,
     tags=["System"],
-    summary="Service health and operational status",
+    summary="Comprehensive system health with DB diagnostics",
 )
-async def health_check(db: AsyncSession = Depends(get_db)):
+async def full_health_check(db: AsyncSession = Depends(get_db)):
     """
     Comprehensive health check verifying database connection, scheduler loop,
     Gemini LLM configuration, and aggregate reminder counts.

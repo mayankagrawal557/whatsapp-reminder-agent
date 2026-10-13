@@ -52,6 +52,7 @@ async def get_settings(
     business_type = stored.get("business_type") or current_user.business_type or settings.DEFAULT_BUSINESS_TYPE
     default_tone = stored.get("default_tone") or "friendly"
     gateway_type = stored.get("whatsapp_gateway_type") or settings.WHATSAPP_GATEWAY_TYPE
+    default_country_code = stored.get("default_country_code") or settings.DEFAULT_COUNTRY_CODE or "+91"
 
     return SettingsResponse(
         meta_phone_number_id=phone_id,
@@ -62,6 +63,7 @@ async def get_settings(
         business_type=business_type,
         default_tone=default_tone,
         whatsapp_gateway_type=gateway_type,
+        default_country_code=default_country_code,
         is_meta_configured=bool(phone_id and raw_token),
         is_gemini_configured=bool(raw_gemini_key),
     )
@@ -98,6 +100,7 @@ async def update_settings(
     await set_user_setting(db, current_user.id, "business_type", payload.business_type or current_user.business_type)
     await set_user_setting(db, current_user.id, "default_tone", payload.default_tone or "friendly")
     await set_user_setting(db, current_user.id, "whatsapp_gateway_type", payload.whatsapp_gateway_type or "meta")
+    await set_user_setting(db, current_user.id, "default_country_code", payload.default_country_code or "+91")
 
     # Update User record business info
     if payload.business_name:
