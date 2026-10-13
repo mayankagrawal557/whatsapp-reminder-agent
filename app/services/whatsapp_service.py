@@ -40,6 +40,18 @@ class BaseWhatsAppGateway(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def send_interactive_buttons(
+        self,
+        to_phone: str,
+        body_text: str,
+        buttons_list: Optional[list] = None,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        """Send an interactive quick-reply button message to a recipient."""
+        pass
+
+    @abc.abstractmethod
     async def test_connection(
         self,
         phone_number_id: str,
@@ -133,6 +145,80 @@ class MetaCloudWhatsAppGateway(BaseWhatsAppGateway):
             logger.error(f"Failed to communicate with Meta Graph API: {exc}")
             return WhatsAppSendResult(success=False, error_message=f"Network/Connection error: {str(exc)}")
 
+    async def send_interactive_buttons(
+        self,
+        to_phone: str,
+        body_text: str,
+        buttons_list: Optional[list] = None,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        """
+        Send WhatsApp interactive quick-reply buttons (Confirm / Reschedule) via Meta Cloud API.
+        Automatically falls back to plain text delivery if interactive message cannot be dispatched.
+        """
+        phone_id = (phone_number_id or self.default_phone_number_id or "").strip()
+        token = (access_token or self.default_token or "").strip()
+
+        if not phone_id or not token:
+            err = (
+                "Missing Meta WhatsApp Cloud API credentials. Please set Phone Number ID "
+                "and WhatsApp Access Token in Settings."
+            )
+            logger.error(err)
+            return WhatsAppSendResult(success=False, error_message=err)
+
+        recipient_digits = self.clean_recipient_phone(to_phone)
+        if not recipient_digits or len(recipient_digits) < 7:
+            err = f"Invalid phone number format: '{to_phone}' (extracted digits: '{recipient_digits}')"
+            return WhatsAppSendResult(success=False, error_message=err)
+
+        buttons = buttons_list or [
+            {"type": "reply", "reply": {"id": "btn_confirm", "title": "✅ Confirm"}},
+            {"type": "reply", "reply": {"id": "btn_reschedule", "title": "📅 Reschedule"}},
+        ]
+
+        url = f"https://graph.facebook.com/{self.graph_version}/{phone_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_digits,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": body_text},
+                "action": {
+                    "buttons": buttons,
+                },
+            },
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                data = resp.json()
+
+                if resp.status_code in (200, 201):
+                    msg_id = data.get("messages", [{}])[0].get("id")
+                    logger.info(f"WhatsApp Cloud API interactive buttons dispatched to {recipient_digits}. Msg ID: {msg_id}")
+                    return WhatsAppSendResult(success=True, message_id=msg_id, raw_response=data)
+                else:
+                    error_info = data.get("error", {})
+                    err_msg = error_info.get("message", f"HTTP {resp.status_code} Error")
+                    logger.warning(
+                        f"Interactive buttons send error ({err_msg}). Falling back to plain text for {recipient_digits}..."
+                    )
+                    return await self.send_text_message(to_phone, body_text, phone_number_id, access_token)
+
+        except Exception as exc:
+            logger.warning(f"Interactive dispatch error: {exc}. Falling back to plain text delivery...")
+            return await self.send_text_message(to_phone, body_text, phone_number_id, access_token)
+
     async def test_connection(self, phone_number_id: str, access_token: str) -> dict:
         """
         Verify credentials by querying the phone number ID node on Meta Graph API.
@@ -189,6 +275,37 @@ class MockWhatsAppGateway(BaseWhatsAppGateway):
             raw_response={"simulated": True, "to": to_phone, "status": "sent"},
         )
 
+    async def send_interactive_buttons(
+        self,
+        to_phone: str,
+        body_text: str,
+        buttons_list: Optional[list] = None,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        simulated_id = f"wamid.mock.interactive.{uuid.uuid4().hex[:16]}"
+        buttons = buttons_list or [
+            {"type": "reply", "reply": {"id": "btn_confirm", "title": "✅ Confirm"}},
+            {"type": "reply", "reply": {"id": "btn_reschedule", "title": "📅 Reschedule"}},
+        ]
+        btn_titles = [b.get("reply", {}).get("title", "") for b in buttons]
+        logger.info(
+            f"[MOCK GATEWAY] Simulating WhatsApp Interactive Buttons to {to_phone}: "
+            f"'{body_text[:60]}...' with Buttons: {btn_titles} (ID: {simulated_id})"
+        )
+        return WhatsAppSendResult(
+            success=True,
+            message_id=simulated_id,
+            raw_response={
+                "simulated": True,
+                "type": "interactive",
+                "to": to_phone,
+                "body": body_text,
+                "buttons": buttons,
+                "status": "sent",
+            },
+        )
+
     async def test_connection(self, phone_number_id: str, access_token: str) -> dict:
         return {
             "success": True,
@@ -202,6 +319,27 @@ def get_whatsapp_gateway(gateway_type: Optional[str] = None) -> BaseWhatsAppGate
     if mode == "mock":
         return MockWhatsAppGateway()
     return MetaCloudWhatsAppGateway()
+
+
+async def send_interactive_buttons(
+    phone_number: str,
+    body_text: str,
+    buttons_list: Optional[list] = None,
+    access_token: Optional[str] = None,
+    phone_number_id: Optional[str] = None,
+    gateway_type: Optional[str] = None,
+) -> WhatsAppSendResult:
+    """
+    Top-level helper to send interactive quick-reply buttons.
+    """
+    gw = get_whatsapp_gateway(gateway_type)
+    return await gw.send_interactive_buttons(
+        to_phone=phone_number,
+        body_text=body_text,
+        buttons_list=buttons_list,
+        phone_number_id=phone_number_id,
+        access_token=access_token,
+    )
 
 
 # Active singleton gateway instance

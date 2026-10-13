@@ -116,10 +116,10 @@ async def dispatch_due_reminders_task() -> None:
                         model_name=global_gemini_model,
                     )
 
-                    # B. Dispatch via configured WhatsApp gateway
-                    send_result = await active_gateway.send_text_message(
+                    # B. Dispatch via configured WhatsApp gateway with interactive quick-reply buttons
+                    send_result = await active_gateway.send_interactive_buttons(
                         to_phone=reminder.phone,
-                        message=custom_text,
+                        body_text=custom_text,
                         phone_number_id=phone_id,
                         access_token=access_token,
                     )

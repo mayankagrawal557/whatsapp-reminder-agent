@@ -458,9 +458,9 @@ async def send_reminder_now(
     reminder.attempts += 1
 
     active_gateway = get_whatsapp_gateway(gateway_type)
-    send_result = await active_gateway.send_text_message(
+    send_result = await active_gateway.send_interactive_buttons(
         to_phone=reminder.phone,
-        message=custom_text,
+        body_text=custom_text,
         phone_number_id=phone_id,
         access_token=whatsapp_token,
     )
@@ -542,7 +542,7 @@ async def seed_demo_appointments(
     """
     now = datetime.now(timezone.utc)
     stored = await get_user_settings_dict(db, current_user.id)
-    biz_name = stored.get("business_name") or current_user.business_name or "Apex Smiles Clinic"
+    biz_name = stored.get("business_name") or current_user.business_name or settings.DEFAULT_BUSINESS_NAME
 
     demo_records = [
         {

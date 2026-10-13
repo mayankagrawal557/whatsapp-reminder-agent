@@ -44,6 +44,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     business_type = Column(String(64), nullable=False, default="Clinic / Service")
     phone = Column(String(32), nullable=True)
+    logo_url = Column(String(512), nullable=True)
+    brand_color = Column(String(32), nullable=True, default="#10b981")
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -290,6 +292,14 @@ async def init_db() -> None:
         audit_cols = {row[1] for row in audit_info.fetchall()}
         if "user_id" not in audit_cols and len(audit_cols) > 0:
             await conn.execute(text("ALTER TABLE message_audit_logs ADD COLUMN user_id VARCHAR(64);"))
+
+        # Check users table columns for white-label branding
+        users_info = await conn.execute(text("PRAGMA table_info(users);"))
+        user_cols = {row[1] for row in users_info.fetchall()}
+        if "logo_url" not in user_cols and len(user_cols) > 0:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN logo_url VARCHAR(512);"))
+        if "brand_color" not in user_cols and len(user_cols) > 0:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN brand_color VARCHAR(32) DEFAULT '#10b981';"))
 
     # Seed default clinic user tenant
     async with AsyncSessionLocal() as session:

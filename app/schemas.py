@@ -213,6 +213,8 @@ class SettingsPayload(BaseModel):
     default_tone: Optional[str] = "friendly"
     whatsapp_gateway_type: Optional[str] = "meta"
     default_country_code: Optional[str] = "+91"
+    logo_url: Optional[str] = None
+    brand_color: Optional[str] = None
 
 
 class SettingsResponse(BaseModel):
@@ -225,6 +227,8 @@ class SettingsResponse(BaseModel):
     default_tone: str = "friendly"
     whatsapp_gateway_type: str = "meta"
     default_country_code: str = "+91"
+    logo_url: Optional[str] = None
+    brand_color: Optional[str] = "#10b981"
     is_meta_configured: bool = False
     is_gemini_configured: bool = False
 

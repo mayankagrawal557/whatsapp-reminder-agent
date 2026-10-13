@@ -33,6 +33,8 @@ class UserResponse(BaseModel):
     business_name: str
     email: str
     business_type: str
+    logo_url: Optional[str] = None
+    brand_color: Optional[str] = "#10b981"
     is_active: bool
 
     class Config:

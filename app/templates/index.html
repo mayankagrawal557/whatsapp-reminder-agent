@@ -61,16 +61,19 @@
   <header class="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
-      <!-- Brand Logo -->
+      <!-- Brand Logo & White-Label Clinic Identity -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 6.46 17.5 2 12.04 2M12.05 3.67C16.58 3.67 20.28 7.37 20.28 11.92C20.28 16.46 16.58 20.17 12.05 20.17C10.52 20.17 9.04 19.75 7.76 18.99L7.46 18.81L4.34 19.63L5.17 16.59L4.98 16.27C4.15 14.95 3.71 13.45 3.71 11.91C3.71 7.37 7.42 3.67 12.05 3.67M9.27 7.5C9.09 7.5 8.79 7.56 8.54 7.84C8.28 8.11 7.56 8.79 7.56 10.16C7.56 11.53 8.56 12.85 8.7 13.04C8.84 13.23 10.66 16.03 13.44 17.23C15.75 18.23 16.22 18.03 16.71 17.98C17.2 17.94 18.3 17.33 18.53 16.68C18.76 16.03 18.76 15.48 18.7 15.36C18.63 15.25 18.44 15.19 18.17 15.05C17.89 14.91 16.55 14.25 16.3 14.16C16.05 14.07 15.87 14.02 15.68 14.3C15.5 14.58 14.97 15.19 14.81 15.37C14.65 15.56 14.49 15.58 14.21 15.44C13.93 15.31 13.04 15.01 11.99 14.08C11.17 13.35 10.62 12.45 10.45 12.18C10.29 11.9 10.43 11.75 10.57 11.61C10.7 11.48 10.86 11.27 11.02 11.09C11.18 10.9 11.24 10.77 11.34 10.56C11.43 10.36 11.39 10.18 11.32 10.04C11.25 9.9 10.7 8.56 10.47 8.01C10.25 7.48 10.02 7.55 9.85 7.54C9.69 7.54 9.49 7.5 9.27 7.5Z"/>
-          </svg>
+        <div id="brand-logo-container" class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 overflow-hidden relative transition-all duration-300">
+          <img id="brand-logo-img" src="" alt="Clinic Logo" class="w-full h-full object-cover hidden">
+          <div id="brand-logo-icon" class="flex items-center justify-center">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 6.46 17.5 2 12.04 2M12.05 3.67C16.58 3.67 20.28 7.37 20.28 11.92C20.28 16.46 16.58 20.17 12.05 20.17C10.52 20.17 9.04 19.75 7.76 18.99L7.46 18.81L4.34 19.63L5.17 16.59L4.98 16.27C4.15 14.95 3.71 13.45 3.71 11.91C3.71 7.37 7.42 3.67 12.05 3.67M9.27 7.5C9.09 7.5 8.79 7.56 8.54 7.84C8.28 8.11 7.56 8.79 7.56 10.16C7.56 11.53 8.56 12.85 8.7 13.04C8.84 13.23 10.66 16.03 13.44 17.23C15.75 18.23 16.22 18.03 16.71 17.98C17.2 17.94 18.3 17.33 18.53 16.68C18.76 16.03 18.76 15.48 18.7 15.36C18.63 15.25 18.44 15.19 18.17 15.05C17.89 14.91 16.55 14.25 16.3 14.16C16.05 14.07 15.87 14.02 15.68 14.3C15.5 14.58 14.97 15.19 14.81 15.37C14.65 15.56 14.49 15.58 14.21 15.44C13.93 15.31 13.04 15.01 11.99 14.08C11.17 13.35 10.62 12.45 10.45 12.18C10.29 11.9 10.43 11.75 10.57 11.61C10.7 11.48 10.86 11.27 11.02 11.09C11.18 10.9 11.24 10.77 11.34 10.56C11.43 10.36 11.39 10.18 11.32 10.04C11.25 9.9 10.7 8.56 10.47 8.01C10.25 7.48 10.02 7.55 9.85 7.54C9.69 7.54 9.49 7.5 9.27 7.5Z"/>
+            </svg>
+          </div>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">RemindAI</span>
+            <span id="brand-clinic-title" class="font-bold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">Apex Smiles Clinic</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 uppercase tracking-wider">Multi-Tenant SaaS</span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Automated WhatsApp Reminders & Two-Way Confirmation</p>
@@ -93,8 +96,9 @@
 
         <!-- Clinic Tenant User Badge & Auth Button -->
         <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs" id="tenant-avatar">
-            C
+          <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs overflow-hidden" id="tenant-avatar">
+            <img id="tenant-avatar-img" src="" alt="Avatar" class="w-full h-full object-cover hidden">
+            <span id="tenant-avatar-text">C</span>
           </div>
           <div class="text-left text-xs pr-1">
             <div class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[120px] sm:max-w-[160px]" id="tenant-name">Apex Smiles Clinic</div>
@@ -423,10 +427,12 @@
               </div>
             </div>
 
-            <div class="flex gap-2">
-              <button onclick="setSimulateQuick('1')" class="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">Quick: "1" (Confirm)</button>
-              <button onclick="setSimulateQuick('2')" class="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-300">Quick: "2" (Reschedule)</button>
-              <button onclick="setSimulateQuick('cancel')" class="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300">Quick: "Cancel"</button>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="simulateInteractiveButton('btn_confirm', '✅ Confirm')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 hover:bg-emerald-200 transition">Button: "✅ Confirm"</button>
+              <button onclick="simulateInteractiveButton('btn_reschedule', '📅 Reschedule')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-300 hover:bg-purple-200 transition">Button: "📅 Reschedule"</button>
+              <button onclick="setSimulateQuick('1')" class="px-2 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300">Text: "1"</button>
+              <button onclick="setSimulateQuick('2')" class="px-2 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300">Text: "2"</button>
+              <button onclick="setSimulateQuick('cancel')" class="px-2 py-1 text-[11px] font-semibold rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300">Text: "Cancel"</button>
             </div>
 
             <button onclick="runSimulateReply()" id="btn-sim-send" class="w-full py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1.5">
@@ -471,7 +477,7 @@
         <!-- WhatsApp Device Mockup Column -->
         <div class="lg:col-span-6 flex justify-center">
           <div class="w-full max-w-sm rounded-[36px] p-3 bg-slate-800 shadow-2xl border-4 border-slate-700">
-            <div class="rounded-[28px] overflow-hidden flex flex-col h-[520px] bg-slate-900 border border-slate-800">
+            <div class="rounded-[28px] overflow-hidden flex flex-col h-[540px] bg-slate-900 border border-slate-800">
               
               <!-- WhatsApp Chat Header -->
               <div class="bg-[#075E54] px-4 py-3 text-white flex items-center justify-between shadow">
@@ -501,6 +507,18 @@
                     <span id="mockup-time">10:42 AM</span>
                     <svg class="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.41 11.93l-1.41 1.41 5.66 5.66 12-12-1.42-1.41zM.41 13.41L6.07 19.07l1.41-1.41L1.83 12 .41 13.41z"/></svg>
                   </div>
+                </div>
+
+                <!-- Interactive WhatsApp Quick-Reply Buttons (Feature 4) -->
+                <div class="self-end w-[88%] flex flex-col gap-1.5 -mt-1">
+                  <button id="sim-btn-confirm" onclick="simulateInteractiveButton('btn_confirm', '✅ Confirm')" class="w-full py-2 px-3 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 shadow-sm flex items-center justify-center gap-1.5 transition transform active:scale-95" title="Click to simulate client confirming via WhatsApp quick-reply button">
+                    <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    <span>✅ Confirm</span>
+                  </button>
+                  <button id="sim-btn-reschedule" onclick="simulateInteractiveButton('btn_reschedule', '📅 Reschedule')" class="w-full py-2 px-3 text-xs font-bold rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/80 hover:bg-purple-50 dark:hover:bg-purple-950/60 shadow-sm flex items-center justify-center gap-1.5 transition transform active:scale-95" title="Click to simulate client requesting reschedule via WhatsApp quick-reply button">
+                    <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>📅 Reschedule</span>
+                  </button>
                 </div>
 
                 <!-- Inbound Customer Reply Bubble -->
@@ -600,15 +618,18 @@
           <div class="border-t border-slate-100 dark:border-slate-800"></div>
 
           <div class="space-y-4">
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Practice / Clinic Identity</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Practice Identity & White-label Branding</h3>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">Multi-Clinic Ready</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Business Name</label>
-                <input type="text" id="cfg-biz-name" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white">
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Clinic Display Name *</label>
+                <input type="text" id="cfg-biz-name" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white" placeholder="e.g. Apex Smiles Clinic">
               </div>
               <div>
-                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Category / Type</label>
-                <input type="text" id="cfg-biz-type" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white">
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Practice Category / Type</label>
+                <input type="text" id="cfg-biz-type" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white" placeholder="e.g. Dental Clinic">
               </div>
               <div>
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Default Tone</label>
@@ -620,6 +641,17 @@
                 </select>
               </div>
               <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Clinic Logo URL</label>
+                <input type="text" id="cfg-logo-url" placeholder="https://example.com/logo.png" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono text-xs">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Primary Brand Accent Color</label>
+                <div class="flex items-center gap-2">
+                  <input type="color" id="cfg-brand-color" value="#10b981" oninput="document.getElementById('cfg-brand-color-text').value = this.value; applyBrandColor(this.value);" class="w-10 h-10 p-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent cursor-pointer">
+                  <input type="text" id="cfg-brand-color-text" value="#10b981" oninput="document.getElementById('cfg-brand-color').value = this.value; applyBrandColor(this.value);" placeholder="#10b981" class="flex-1 px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono text-xs">
+                </div>
+              </div>
+              <div>
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Default Country Code</label>
                 <input type="text" id="cfg-country-code" placeholder="+91" class="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono">
               </div>
@@ -627,8 +659,9 @@
           </div>
 
           <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-            <button onclick="saveAppSettings()" id="btn-save-settings" class="px-6 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition">
-              Save Clinic Settings
+            <button onclick="saveAppSettings()" id="btn-save-settings" class="px-6 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>Save Branding & Clinic Settings</span>
             </button>
           </div>
         </div>
@@ -904,10 +937,68 @@
     }
 
     function updateNavbarUser(user) {
-      document.getElementById('tenant-name').innerText = user.business_name || 'My Clinic';
-      document.getElementById('tenant-email').innerText = user.email || 'clinic@example.com';
-      document.getElementById('tenant-avatar').innerText = (user.business_name || 'C').charAt(0).toUpperCase();
-      document.getElementById('mockup-biz-title').innerText = user.business_name || 'Appointments Desk';
+      if (!user) return;
+      const bizName = user.business_name || 'My Clinic';
+      const email = user.email || 'clinic@example.com';
+      const logoUrl = user.logo_url || '';
+      const brandColor = user.brand_color || '#10b981';
+
+      // 1. Text elements
+      const brandClinicTitle = document.getElementById('brand-clinic-title');
+      if (brandClinicTitle) brandClinicTitle.innerText = bizName;
+
+      const tenantName = document.getElementById('tenant-name');
+      if (tenantName) tenantName.innerText = bizName;
+
+      const tenantEmail = document.getElementById('tenant-email');
+      if (tenantEmail) tenantEmail.innerText = email;
+
+      const mockupBizTitle = document.getElementById('mockup-biz-title');
+      if (mockupBizTitle) mockupBizTitle.innerText = bizName;
+
+      // 2. Logo and Initials binding
+      const brandLogoImg = document.getElementById('brand-logo-img');
+      const brandLogoIcon = document.getElementById('brand-logo-icon');
+      const tenantAvatarImg = document.getElementById('tenant-avatar-img');
+      const tenantAvatarText = document.getElementById('tenant-avatar-text');
+      const initial = bizName.charAt(0).toUpperCase() || 'C';
+
+      if (logoUrl) {
+        if (brandLogoImg) {
+          brandLogoImg.src = logoUrl;
+          brandLogoImg.classList.remove('hidden');
+          if (brandLogoIcon) brandLogoIcon.classList.add('hidden');
+        }
+        if (tenantAvatarImg) {
+          tenantAvatarImg.src = logoUrl;
+          tenantAvatarImg.classList.remove('hidden');
+          if (tenantAvatarText) tenantAvatarText.classList.add('hidden');
+        }
+      } else {
+        if (brandLogoImg) brandLogoImg.classList.add('hidden');
+        if (brandLogoIcon) brandLogoIcon.classList.remove('hidden');
+        if (tenantAvatarImg) tenantAvatarImg.classList.add('hidden');
+        if (tenantAvatarText) {
+          tenantAvatarText.classList.remove('hidden');
+          tenantAvatarText.innerText = initial;
+        }
+      }
+
+      // 3. Dynamic Accent Brand Color
+      applyBrandColor(brandColor);
+    }
+
+    function applyBrandColor(color) {
+      if (!color) return;
+      document.documentElement.style.setProperty('--brand-accent', color);
+      const logoBox = document.getElementById('brand-logo-container');
+      if (logoBox) {
+        logoBox.style.background = `linear-gradient(135deg, ${color}, #0d9488)`;
+      }
+      const avatarBox = document.getElementById('tenant-avatar');
+      if (avatarBox) {
+        avatarBox.style.backgroundColor = color;
+      }
     }
 
     function openAuthModal() {
@@ -1177,6 +1268,47 @@
       }
     }
 
+    // SIMULATE INTERACTIVE WHATSAPP QUICK-REPLY BUTTON CLICK (Feature 4)
+    async function simulateInteractiveButton(buttonId, title) {
+      let phone = document.getElementById('sim-phone')?.value?.trim();
+      if (!phone && allReminders && allReminders.length > 0) {
+        phone = allReminders[0].phone;
+        if (document.getElementById('sim-phone')) {
+          document.getElementById('sim-phone').value = phone;
+        }
+      }
+
+      if (!phone) {
+        showToast('Please schedule or seed demo appointments first to test interactive buttons.', 'error');
+        return;
+      }
+
+      // Visual feedback in simulated WhatsApp phone screen
+      const inboundBubble = document.getElementById('mockup-inbound-bubble');
+      const replyText = document.getElementById('mockup-reply-text');
+      if (replyText) replyText.innerText = `${title} (Processing...)`;
+      if (inboundBubble) inboundBubble.classList.remove('hidden');
+
+      showToast(`Simulating WhatsApp button click: "${title}"...`, 'info');
+
+      try {
+        const res = await fetch('/api/webhook/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, button_id: buttonId, message: title }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Simulation failed');
+
+        showToast(`Interactive reply processed! Status updated to: ${data.new_status}`, 'success');
+        if (replyText) replyText.innerText = `${title} — ${data.new_status}`;
+        await loadReminders();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
     // SINGLE REMINDER SUBMISSION
     async function handleSingleSubmit(e) {
       e.preventDefault();
@@ -1374,6 +1506,20 @@
         document.getElementById('cfg-biz-tone').value = cfg.default_tone || 'friendly';
         document.getElementById('cfg-country-code').value = cfg.default_country_code || '+91';
 
+        // White-label branding bindings
+        if (document.getElementById('cfg-logo-url')) {
+          document.getElementById('cfg-logo-url').value = cfg.logo_url || '';
+        }
+        if (document.getElementById('cfg-brand-color')) {
+          document.getElementById('cfg-brand-color').value = cfg.brand_color || '#10b981';
+        }
+        if (document.getElementById('cfg-brand-color-text')) {
+          document.getElementById('cfg-brand-color-text').value = cfg.brand_color || '#10b981';
+        }
+        if (cfg.brand_color) {
+          applyBrandColor(cfg.brand_color);
+        }
+
         const metaPill = document.getElementById('meta-status-pill');
         if (cfg.is_meta_configured) {
           metaPill.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400';
@@ -1398,6 +1544,8 @@
         business_type: document.getElementById('cfg-biz-type').value,
         default_tone: document.getElementById('cfg-biz-tone').value,
         default_country_code: document.getElementById('cfg-country-code').value || '+91',
+        logo_url: document.getElementById('cfg-logo-url')?.value?.trim() || null,
+        brand_color: document.getElementById('cfg-brand-color')?.value?.trim() || '#10b981',
       };
 
       try {
@@ -1406,8 +1554,19 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error('Failed to save settings');
-        showToast('Clinic settings updated!');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to save settings');
+        showToast(data.message || 'Clinic branding & settings updated!');
+        if (data.user) {
+          currentAuthUser = data.user;
+          updateNavbarUser(currentAuthUser);
+        } else {
+          updateNavbarUser({
+            business_name: payload.business_name,
+            logo_url: payload.logo_url,
+            brand_color: payload.brand_color,
+          });
+        }
         loadSettings();
       } catch (err) {
         showToast(err.message, 'error');

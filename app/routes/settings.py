@@ -53,6 +53,8 @@ async def get_settings(
     default_tone = stored.get("default_tone") or "friendly"
     gateway_type = stored.get("whatsapp_gateway_type") or settings.WHATSAPP_GATEWAY_TYPE
     default_country_code = stored.get("default_country_code") or settings.DEFAULT_COUNTRY_CODE or "+91"
+    logo_url = current_user.logo_url or stored.get("logo_url") or None
+    brand_color = current_user.brand_color or stored.get("brand_color") or "#10b981"
 
     return SettingsResponse(
         meta_phone_number_id=phone_id,
@@ -64,6 +66,8 @@ async def get_settings(
         default_tone=default_tone,
         whatsapp_gateway_type=gateway_type,
         default_country_code=default_country_code,
+        logo_url=logo_url,
+        brand_color=brand_color,
         is_meta_configured=bool(phone_id and raw_token),
         is_gemini_configured=bool(raw_gemini_key),
     )
@@ -102,15 +106,73 @@ async def update_settings(
     await set_user_setting(db, current_user.id, "whatsapp_gateway_type", payload.whatsapp_gateway_type or "meta")
     await set_user_setting(db, current_user.id, "default_country_code", payload.default_country_code or "+91")
 
-    # Update User record business info
+    # Update User record business & branding info
     if payload.business_name:
-        current_user.business_name = payload.business_name
+        current_user.business_name = payload.business_name.strip()
     if payload.business_type:
-        current_user.business_type = payload.business_type
-    await db.commit()
+        current_user.business_type = payload.business_type.strip()
+    if payload.logo_url is not None:
+        current_user.logo_url = payload.logo_url.strip() or None
+        await set_user_setting(db, current_user.id, "logo_url", current_user.logo_url)
+    if payload.brand_color is not None:
+        current_user.brand_color = payload.brand_color.strip() or "#10b981"
+        await set_user_setting(db, current_user.id, "brand_color", current_user.brand_color)
 
-    logger.info(f"Clinic [{current_user.id}] settings saved successfully.")
-    return {"status": "success", "message": "Settings updated successfully for your clinic."}
+    await db.commit()
+    await db.refresh(current_user)
+
+    logger.info(f"Clinic [{current_user.id}] settings & branding saved successfully.")
+    return {
+        "status": "success",
+        "message": "Settings updated successfully for your clinic.",
+        "user": {
+            "id": current_user.id,
+            "business_name": current_user.business_name,
+            "email": current_user.email,
+            "business_type": current_user.business_type,
+            "logo_url": current_user.logo_url,
+            "brand_color": current_user.brand_color,
+        }
+    }
+
+
+@router.post("/branding", summary="Save clinic white-label branding specifically")
+async def update_branding_only(
+    payload: SettingsPayload,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dedicated endpoint to update Clinic Display Name, Logo URL, and Brand Color.
+    """
+    if payload.business_name:
+        current_user.business_name = payload.business_name.strip()
+        await set_user_setting(db, current_user.id, "business_name", current_user.business_name)
+    if payload.business_type:
+        current_user.business_type = payload.business_type.strip()
+        await set_user_setting(db, current_user.id, "business_type", current_user.business_type)
+    if payload.logo_url is not None:
+        current_user.logo_url = payload.logo_url.strip() or None
+        await set_user_setting(db, current_user.id, "logo_url", current_user.logo_url)
+    if payload.brand_color is not None:
+        current_user.brand_color = payload.brand_color.strip() or "#10b981"
+        await set_user_setting(db, current_user.id, "brand_color", current_user.brand_color)
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {
+        "status": "success",
+        "message": "Branding updated successfully.",
+        "user": {
+            "id": current_user.id,
+            "business_name": current_user.business_name,
+            "email": current_user.email,
+            "business_type": current_user.business_type,
+            "logo_url": current_user.logo_url,
+            "brand_color": current_user.brand_color,
+        }
+    }
 
 
 @router.post("/test-whatsapp", summary="Test WhatsApp Cloud API credentials")

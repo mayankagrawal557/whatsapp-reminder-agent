@@ -26,35 +26,51 @@ def clean_phone_digits(phone: str) -> str:
     return re.sub(r"\D", "", phone)
 
 
-def evaluate_reply_intent(text: str) -> str:
+def evaluate_reply_intent(text: str, button_id: Optional[str] = None) -> str:
     """
-    Evaluate customer WhatsApp reply body and determine new reminder status:
-    - '1', 'yes', 'confirm', 'confirmed', 'y', 'sure' -> CONFIRMED
-    - 'cancel', 'cannot', 'cant', 'no' -> CANCELLED
-    - '2', 'reschedule', 'later', 'change', 'postpone' -> NEEDS_RESCHEDULE
+    Evaluate customer WhatsApp reply body or interactive button ID and determine new reminder status:
+    - button_id == 'btn_confirm' or text contains '✅ confirm', '1', 'confirm' -> CONFIRMED
+    - button_id == 'btn_reschedule' or text contains '📅 reschedule', '2', 'reschedule' -> NEEDS_RESCHEDULE
+    - text contains 'cancel', 'cannot', 'no' -> CANCELLED
     """
-    clean = text.lower().strip()
+    b_id = (button_id or "").lower().strip()
+    if b_id == "btn_confirm" or "confirm" in b_id:
+        return "CONFIRMED"
+    if b_id == "btn_reschedule" or "reschedule" in b_id:
+        return "NEEDS_RESCHEDULE"
 
-    # Priority 1: Cancellation check
+    clean = (text or "").lower().strip()
+
+    # Priority 1: Interactive quick-reply titles
+    if "confirm" in clean or "✅" in clean or clean == "1":
+        return "CONFIRMED"
+    if "reschedule" in clean or "📅" in clean or clean == "2":
+        return "NEEDS_RESCHEDULE"
+
+    # Priority 2: Explicit cancellation check
     if any(k in clean for k in ["cancel", "cannot make", "cant make", "won't make", "no", "unable"]):
         return "CANCELLED"
 
-    # Priority 2: Reschedule check
-    if clean == "2" or any(k in clean for k in ["reschedule", "change time", "change date", "postpone", "later", "next week"]):
+    # Priority 3: Phrasing check
+    if any(k in clean for k in ["change time", "change date", "postpone", "later", "next week"]):
         return "NEEDS_RESCHEDULE"
-
-    # Priority 3: Confirmation check
-    if clean == "1" or any(k in clean for k in ["yes", "confirm", "confirmed", "yup", "yeah", "ok", "sure", "attend", "i will be there"]):
+    if any(k in clean for k in ["yes", "confirmed", "yup", "yeah", "ok", "sure", "attend", "i will be there"]):
         return "CONFIRMED"
 
     # Default fallback: If ambiguous, keep as NEEDS_RESCHEDULE so clinic staff can follow up
     return "NEEDS_RESCHEDULE"
 
 
-async def process_incoming_reply(db: AsyncSession, from_phone: str, text_body: str) -> Optional[Reminder]:
+async def process_incoming_reply(
+    db: AsyncSession,
+    from_phone: str,
+    text_body: str,
+    button_id: Optional[str] = None,
+) -> Optional[Reminder]:
     """
     Match incoming sender phone to the most recent Reminder record,
     update its status, and record the reply text and timestamp.
+    Supports both text replies and Meta interactive button replies.
     """
     digits = clean_phone_digits(from_phone)
     if not digits:
@@ -76,7 +92,7 @@ async def process_incoming_reply(db: AsyncSession, from_phone: str, text_body: s
     reminder = res.scalars().first()
 
     if reminder:
-        new_status = evaluate_reply_intent(text_body)
+        new_status = evaluate_reply_intent(text_body, button_id=button_id)
         reminder.status = new_status
         reminder.customer_reply = text_body
         reminder.replied_at = datetime.now(timezone.utc)
@@ -88,7 +104,12 @@ async def process_incoming_reply(db: AsyncSession, from_phone: str, text_body: s
             reminder_id=reminder.id,
             direction="INBOUND",
             status=new_status,
-            payload=json.dumps({"from": from_phone, "text": text_body, "matched_status": new_status}),
+            payload=json.dumps({
+                "from": from_phone,
+                "text": text_body,
+                "button_id": button_id,
+                "matched_status": new_status,
+            }),
         )
         db.add(audit)
         await db.commit()
@@ -96,7 +117,7 @@ async def process_incoming_reply(db: AsyncSession, from_phone: str, text_body: s
 
         logger.info(
             f"Updated reminder [{reminder.id}] for {reminder.customer_name} ({reminder.phone}) "
-            f"to {new_status} via customer reply: '{text_body}'"
+            f"to {new_status} via customer reply: '{text_body}' (button: {button_id})"
         )
         return reminder
 
@@ -181,15 +202,35 @@ async def receive_webhook_event(request: Request, db: AsyncSession = Depends(get
                         elif status_name in ("delivered", "read") and reminder.status == "PENDING":
                             reminder.status = "SENT"
 
-            # B. Process incoming customer replies
+            # B. Process incoming customer replies (Text or Interactive Quick Replies)
             messages = value.get("messages", [])
             for msg in messages:
                 from_phone = msg.get("from")
                 msg_type = msg.get("type")
-                text_body = msg.get("text", {}).get("body", "") if msg_type == "text" else ""
+                text_body = ""
+                button_id = None
 
-                if from_phone and text_body:
-                    await process_incoming_reply(db, from_phone=from_phone, text_body=text_body)
+                if msg_type == "text":
+                    text_body = msg.get("text", {}).get("body", "")
+                elif msg_type == "interactive":
+                    interactive = msg.get("interactive", {})
+                    btn_reply = interactive.get("button_reply", {})
+                    button_id = btn_reply.get("id")
+                    text_body = btn_reply.get("title", "")
+                elif msg_type == "button":
+                    btn = msg.get("button", {})
+                    button_id = btn.get("payload")
+                    text_body = btn.get("text", "")
+
+                if from_phone and (text_body or button_id):
+                    if not text_body:
+                        text_body = "✅ Confirm" if button_id == "btn_confirm" else "📅 Reschedule"
+                    await process_incoming_reply(
+                        db,
+                        from_phone=from_phone,
+                        text_body=text_body,
+                        button_id=button_id,
+                    )
 
     await db.commit()
     return Response(content="EVENT_RECEIVED", status_code=status.HTTP_200_OK)
@@ -198,7 +239,8 @@ async def receive_webhook_event(request: Request, db: AsyncSession = Depends(get
 # 3. Simulate Incoming Reply Endpoint for UI Playground and Demos
 class SimulateReplyPayload(BaseModel):
     phone: str = Field(..., description="Customer phone number to simulate reply from")
-    message: str = Field(..., description="Reply text (e.g., '1', 'YES', '2', 'Reschedule')")
+    message: Optional[str] = Field(None, description="Reply text (e.g., '1', 'YES', '2', 'Reschedule', '✅ Confirm', '📅 Reschedule')")
+    button_id: Optional[str] = Field(None, description="Interactive quick-reply button ID ('btn_confirm' or 'btn_reschedule')")
 
 
 @router.post("/api/webhook/simulate", summary="Simulate Inbound WhatsApp Reply (Demo & Testing)")
@@ -206,8 +248,23 @@ async def simulate_incoming_reply(payload: SimulateReplyPayload, db: AsyncSessio
     """
     Allows clinic owners and developers to test the two-way interaction engine directly from the UI
     without needing an external ngrok tunnel or live Meta webhook setup.
+    Supports both plain text replies and Meta interactive quick-reply buttons ('btn_confirm' / 'btn_reschedule').
     """
-    reminder = await process_incoming_reply(db, from_phone=payload.phone, text_body=payload.message)
+    reply_text = payload.message
+    if not reply_text:
+        if payload.button_id == "btn_confirm":
+            reply_text = "✅ Confirm"
+        elif payload.button_id == "btn_reschedule":
+            reply_text = "📅 Reschedule"
+        else:
+            reply_text = "1 - Confirmed"
+
+    reminder = await process_incoming_reply(
+        db,
+        from_phone=payload.phone,
+        text_body=reply_text,
+        button_id=payload.button_id,
+    )
     if not reminder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -220,5 +277,6 @@ async def simulate_incoming_reply(payload: SimulateReplyPayload, db: AsyncSessio
         "customer_name": reminder.customer_name,
         "new_status": reminder.status,
         "customer_reply": reminder.customer_reply,
+        "button_id": payload.button_id,
         "replied_at": reminder.replied_at.isoformat() if reminder.replied_at else None,
     }
