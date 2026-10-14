@@ -47,6 +47,20 @@ class PairRequest(BaseModel):
     pairing_code: Optional[str] = None
 
 
+@router.get("/debug", summary="Debug environment for Baileys node runtime")
+async def debug_bridge_env():
+    return {
+        "has_node": shutil.which("node") is not None,
+        "node_path": shutil.which("node"),
+        "has_npm": shutil.which("npm") is not None,
+        "bridge_dir_exists": BRIDGE_DIR.exists(),
+        "bridge_server_js_exists": BRIDGE_SERVER_JS.exists(),
+        "node_modules_exists": (BRIDGE_DIR / "node_modules").exists(),
+        "baileys_exists": (BRIDGE_DIR / "node_modules" / "@whiskeysockets" / "baileys").exists(),
+    }
+
+
+
 def is_node_environment_ready() -> bool:
     """Check if node binary exists AND required @whiskeysockets/baileys modules exist."""
     has_node = shutil.which("node") is not None
