@@ -246,24 +246,24 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
     linked_phone = get_connected_phone()
 
     # Determine active gateway mode:
-    # 1. Green-API: Real WhatsApp Delivery via Linked Phone (Primary Default)
-    if raw_gateway_mode in ("greenapi", "green_api", "green", "green-api") or (
-        greenapi_id and greenapi_token and not (phone_id and access_token) and not web_is_connected
+    # 1. WhatsApp Web QR Gateway (Prioritized when active session is linked or selected)
+    if raw_gateway_mode in ("whatsapp_web_qr", "web", "whatsapp_web", "baileys", "qr", "web_qr") or web_is_connected:
+        gateway_mode = "whatsapp_web_qr"
+        gateway = get_whatsapp_gateway("whatsapp_web_qr")
+        logger.info(
+            f"[DISPATCH ROUTER] Mode: whatsapp_web_qr. Active WhatsApp Web session verified ({linked_phone or 'Connected'}). "
+            f"Routing dispatches through linked WhatsApp Web."
+        )
+
+    # 2. Green-API: Real WhatsApp Delivery via Linked Phone
+    elif raw_gateway_mode in ("greenapi", "green_api", "green", "green-api") or (
+        greenapi_id and greenapi_token and not (phone_id and access_token)
     ):
         gateway_mode = "greenapi"
         gateway = get_whatsapp_gateway("greenapi")
         phone_id = greenapi_id
         access_token = greenapi_token
         logger.info(f"[DISPATCH ROUTER] Mode: greenapi. Delivering via Green-API instance {greenapi_id}.")
-
-    # 2. WhatsApp Web QR Gateway
-    elif raw_gateway_mode in ("whatsapp_web_qr", "web", "whatsapp_web", "baileys", "qr", "web_qr"):
-        gateway_mode = "whatsapp_web_qr"
-        gateway = get_whatsapp_gateway("whatsapp_web_qr")
-        logger.info(
-            f"[DISPATCH ROUTER] Mode: whatsapp_web_qr. Bypassing Meta credentials completely. "
-            f"Active session: {linked_phone or 'Connected'}."
-        )
 
     # 3. Mock / Dry-Run Mode
     elif raw_gateway_mode in ("mock", "simulated", "dry_run"):

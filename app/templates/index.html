@@ -2444,6 +2444,16 @@ Clinical Outreach Desk, {centre_name}</textarea>
         const pairingCodeEl = document.getElementById('wa-pairing-code-badge');
 
         if (data.status === 'connected') {
+          const gwSelect = document.getElementById('cfg-gateway-type');
+          if (gwSelect && gwSelect.value !== 'whatsapp_web_qr') {
+            gwSelect.value = 'whatsapp_web_qr';
+            fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ whatsapp_gateway_type: 'whatsapp_web_qr' }),
+            }).catch(() => {});
+          }
+
           if (badge) {
             badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
             badge.innerText = `Connected (${data.user?.phone || 'Personal WhatsApp'})`;
