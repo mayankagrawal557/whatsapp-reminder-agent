@@ -16,10 +16,13 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import get_optional_user
 from app.config import settings
+from app.database import User, get_db, set_user_setting
 from app.services.whatsapp_web_session import (
     clear_session,
     create_fresh_qr_session,
@@ -194,10 +197,15 @@ async def start_whatsapp_web_session() -> Dict[str, Any]:
 
 
 @router.post("/pair", summary="Directly pair phone number to WhatsApp Web session")
-async def pair_whatsapp_web_session(req: PairRequest) -> Dict[str, Any]:
+async def pair_whatsapp_web_session(
+    req: PairRequest,
+    current_user: Optional[User] = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
     """
     Directly binds a phone number to the WhatsApp Web session.
     Provides instant connection for users who scan via camera or input their number.
+    Automatically sets whatsapp_gateway_type to 'whatsapp_web_qr' in user settings.
     """
     if not req.phone_number or len(req.phone_number.strip()) < 7:
         raise HTTPException(
@@ -209,6 +217,12 @@ async def pair_whatsapp_web_session(req: PairRequest) -> Dict[str, Any]:
         phone_number=req.phone_number.strip(),
         name="Arovida PET-CT Centre",
     )
+
+    if current_user:
+        await set_user_setting(db, current_user.id, "whatsapp_gateway_type", "whatsapp_web_qr")
+        await set_user_setting(db, current_user.id, "gateway_mode", "whatsapp_web_qr")
+        await db.commit()
+
     return {
         "success": True,
         "status": "connected",

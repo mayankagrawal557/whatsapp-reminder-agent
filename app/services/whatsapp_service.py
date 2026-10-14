@@ -95,9 +95,15 @@ class MetaCloudWhatsAppGateway(BaseWhatsAppGateway):
         token = (access_token or self.default_token or "").strip()
 
         if not phone_id or not token:
+            from app.services.whatsapp_web_session import is_session_connected
+            if is_session_connected():
+                logger.info("Meta credentials missing, but WhatsApp Web session is actively connected. Rerouting to WhatsAppWebGateway.")
+                web_gw = WhatsAppWebGateway()
+                return await web_gw.send_text_message(to_phone, message)
+
             err = (
                 "Missing Meta WhatsApp Cloud API credentials. Please set Phone Number ID "
-                "and WhatsApp Access Token in Settings."
+                "and WhatsApp Access Token in Settings, or link your WhatsApp Web QR session."
             )
             logger.error(err)
             return WhatsAppSendResult(success=False, error_message=err)
@@ -161,9 +167,15 @@ class MetaCloudWhatsAppGateway(BaseWhatsAppGateway):
         token = (access_token or self.default_token or "").strip()
 
         if not phone_id or not token:
+            from app.services.whatsapp_web_session import is_session_connected
+            if is_session_connected():
+                logger.info("Meta credentials missing, but WhatsApp Web session is actively connected. Rerouting interactive dispatch to WhatsAppWebGateway.")
+                web_gw = WhatsAppWebGateway()
+                return await web_gw.send_interactive_buttons(to_phone, body_text, buttons_list)
+
             err = (
                 "Missing Meta WhatsApp Cloud API credentials. Please set Phone Number ID "
-                "and WhatsApp Access Token in Settings."
+                "and WhatsApp Access Token in Settings, or link your WhatsApp Web QR session."
             )
             logger.error(err)
             return WhatsAppSendResult(success=False, error_message=err)
@@ -428,12 +440,33 @@ class WhatsAppWebGateway(BaseWhatsAppGateway):
 
 
 def get_whatsapp_gateway(gateway_type: Optional[str] = None) -> BaseWhatsAppGateway:
-    """Factory to create configured gateway."""
-    mode = (gateway_type or settings.WHATSAPP_GATEWAY_TYPE).lower()
-    if mode in ("web", "baileys", "qr"):
+    """Factory to create configured gateway with resilient fallback."""
+    from app.services.whatsapp_web_session import is_session_connected
+
+    mode = (gateway_type or settings.WHATSAPP_GATEWAY_TYPE or "meta").strip().lower()
+
+    # 1. WhatsApp Web QR Gateway aliases
+    if mode in ("whatsapp_web_qr", "web", "whatsapp_web", "baileys", "qr", "web_qr", "qr_gateway"):
         return WhatsAppWebGateway()
-    elif mode == "mock":
+
+    # 2. Simulated Mock Gateway
+    elif mode in ("mock", "simulated", "dry_run"):
         return MockWhatsAppGateway()
+
+    # 3. Meta Cloud API Gateway
+    elif mode in ("meta", "meta_cloud_api", "cloud_api"):
+        # If user selected Meta Cloud API but has no credentials and WhatsApp Web is active,
+        # seamlessly use WhatsAppWebGateway so broadcasts do not block
+        has_meta_creds = bool(settings.META_PHONE_NUMBER_ID and settings.META_WHATSAPP_TOKEN)
+        if not has_meta_creds and is_session_connected():
+            logger.info("Meta credentials absent but WhatsApp Web is connected. Routing via WhatsAppWebGateway.")
+            return WhatsAppWebGateway()
+        return MetaCloudWhatsAppGateway()
+
+    # 4. Fallback: if WhatsApp Web session is currently active, use it
+    if is_session_connected():
+        return WhatsAppWebGateway()
+
     return MetaCloudWhatsAppGateway()
 
 

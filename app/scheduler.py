@@ -155,12 +155,80 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
         await session.commit()
         return {"success": True, "sent": 0, "failed": 0, "message": "No active doctors in directory"}
 
-    # Fetch tenant WhatsApp settings
+    # Fetch tenant WhatsApp settings and active WhatsApp Web QR session
+    from app.services.whatsapp_web_session import is_session_connected, get_connected_phone
     tenant_settings = await get_user_settings_dict(session, campaign.user_id)
-    active_gateway_type = tenant_settings.get("whatsapp_gateway_type") or settings.WHATSAPP_GATEWAY_TYPE
-    phone_id = tenant_settings.get("meta_phone_number_id") or settings.META_PHONE_NUMBER_ID
-    access_token = tenant_settings.get("meta_whatsapp_token") or settings.META_WHATSAPP_TOKEN
-    gateway = get_whatsapp_gateway(active_gateway_type)
+    raw_gateway_mode = (
+        tenant_settings.get("whatsapp_gateway_type")
+        or tenant_settings.get("gateway_mode")
+        or settings.WHATSAPP_GATEWAY_TYPE
+        or "meta"
+    ).strip().lower()
+
+    web_is_connected = is_session_connected()
+    linked_phone = get_connected_phone()
+
+    phone_id = (tenant_settings.get("meta_phone_number_id") or settings.META_PHONE_NUMBER_ID or "").strip()
+    access_token = (tenant_settings.get("meta_whatsapp_token") or settings.META_WHATSAPP_TOKEN or "").strip()
+
+    # Determine active gateway mode:
+    # 1. WhatsApp Web QR: if explicitly selected OR if WhatsApp Web is actively connected (and no Meta credentials)
+    if raw_gateway_mode in ("whatsapp_web_qr", "web", "whatsapp_web", "baileys", "qr", "web_qr") or (web_is_connected and not (phone_id and access_token)):
+        gateway_mode = "whatsapp_web_qr"
+        # BYPASS all Meta credential checks completely!
+        gateway = get_whatsapp_gateway("whatsapp_web_qr")
+        logger.info(
+            f"[DISPATCH ROUTER] Mode: whatsapp_web_qr. Bypassing Meta credentials completely. "
+            f"Active session: {linked_phone or 'Connected'}."
+        )
+
+    # 2. Mock / Dry-Run Mode
+    elif raw_gateway_mode in ("mock", "simulated", "dry_run"):
+        gateway_mode = "mock"
+        gateway = get_whatsapp_gateway("mock")
+        logger.info("[DISPATCH ROUTER] Mode: mock. Delivery will be simulated as SUCCESS.")
+
+    # 3. Meta WhatsApp Cloud API
+    else:
+        gateway_mode = "meta_cloud_api"
+        # Only then validate Meta credentials
+        if not phone_id or not access_token:
+            if web_is_connected:
+                logger.warning(
+                    f"[DISPATCH ROUTER] Meta credentials not provided, but WhatsApp Web is active ({linked_phone}). "
+                    "Auto-routing dispatch through WhatsApp Web QR Gateway."
+                )
+                gateway_mode = "whatsapp_web_qr"
+                gateway = get_whatsapp_gateway("whatsapp_web_qr")
+            else:
+                err_msg = (
+                    "Missing Meta WhatsApp Cloud API credentials. Please set Phone Number ID and "
+                    "WhatsApp Access Token in Settings, or link your WhatsApp Web QR session."
+                )
+                logger.error(f"[DISPATCH ROUTER] {err_msg}")
+                campaign.last_run_at = datetime.now(timezone.utc)
+                campaign.total_recipients = total_doctors
+                campaign.total_sent = 0
+                campaign.total_failed = total_doctors
+                for doctor in active_doctors:
+                    log_entry = BroadcastLog(
+                        user_id=campaign.user_id,
+                        campaign_id=campaign.id,
+                        doctor_id=doctor.id,
+                        doctor_name=doctor.doctor_name,
+                        phone_number=doctor.phone_number,
+                        message_snippet=campaign.template_message[:160],
+                        sent_at=datetime.now(timezone.utc),
+                        status="FAILED",
+                        error_message=err_msg,
+                        whatsapp_message_id=None,
+                    )
+                    session.add(log_entry)
+                await session.commit()
+                return {"success": False, "error": err_msg, "sent": 0, "failed": total_doctors}
+        else:
+            gateway = get_whatsapp_gateway("meta_cloud_api")
+            logger.info(f"[DISPATCH ROUTER] Mode: meta_cloud_api. Verified credentials for Phone ID: {phone_id[:4]}***.")
 
     sent_count = 0
     failed_count = 0
