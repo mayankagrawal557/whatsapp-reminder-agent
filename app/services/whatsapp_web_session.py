@@ -172,14 +172,32 @@ def clear_session() -> Dict[str, Any]:
 
 
 def is_session_connected() -> bool:
-    """Check if WhatsApp Web session is currently active and bound to a phone number."""
-    session = load_session()
-    return session.get("status") == "connected" and session.get("user") is not None
+    """
+    Check if WhatsApp Web session is currently active and bound to a live phone socket.
+    Strictly verifies with the live Baileys bridge socket.
+    """
+    import urllib.request
+    try:
+        req = urllib.request.Request("http://127.0.0.1:3001/status")
+        with urllib.request.urlopen(req, timeout=0.5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                return data.get("status") == "connected" and data.get("user") is not None
+    except Exception:
+        pass
+    return False
 
 
 def get_connected_phone() -> Optional[str]:
-    """Return the linked phone number if connected, else None."""
-    session = load_session()
-    if session.get("status") == "connected" and session.get("user"):
-        return session["user"].get("phone")
+    """Return the linked phone number if connected to live socket, else None."""
+    import urllib.request
+    try:
+        req = urllib.request.Request("http://127.0.0.1:3001/status")
+        with urllib.request.urlopen(req, timeout=0.5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("status") == "connected" and data.get("user"):
+                    return data["user"].get("phone")
+    except Exception:
+        pass
     return None

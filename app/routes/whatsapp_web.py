@@ -111,52 +111,32 @@ async def get_whatsapp_web_status() -> Dict[str, Any]:
             if res.status_code == 200:
                 data = res.json()
                 data["bridge_online"] = True
-                if data.get("status") == "connected":
-                    return data
-                if data.get("status") == "qr_ready" and data.get("qr_code"):
-                    return data
+                return data
     except Exception:
         pass
 
-    # 2. Check persistent Python session state
-    session = load_session()
-    if session.get("status") == "connected" and session.get("user"):
-        return {
-            "bridge_online": False,
-            "status": "connected",
-            "is_starting": False,
-            "qr_code": None,
-            "user": session.get("user"),
-            "connected_at": session.get("connected_at"),
-            "message": "Connected via linked WhatsApp session.",
-        }
-
-    # 3. If a pairing QR was already generated and valid, return it
-    if session.get("status") == "qr_ready" and session.get("qr_code"):
-        return {
-            "bridge_online": False,
-            "status": "qr_ready",
-            "is_starting": False,
-            "qr_code": session.get("qr_code"),
-            "pairing_code": session.get("pairing_code"),
-            "user": None,
-            "message": "Point phone camera or scan in WhatsApp > Linked Devices.",
-        }
-
-    # 4. If Node environment is ready, trigger background launch
+    # 2. If Node environment is present locally, attempt auto-launch
     if is_node_environment_ready():
         start_local_bridge_process()
+        # Brief retry
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                res = await client.get(f"{bridge_url}/status")
+                if res.status_code == 200:
+                    data = res.json()
+                    data["bridge_online"] = True
+                    return data
+        except Exception:
+            pass
 
-    # 5. Generate fresh Python pairing QR code so the frontend NEVER buffers endlessly
-    qr_data_url, pairing_code, _ = create_fresh_qr_session()
+    # 3. Baileys bridge is offline (e.g. Render Python-only container)
     return {
         "bridge_online": False,
-        "status": "qr_ready",
+        "status": "disconnected",
         "is_starting": False,
-        "qr_code": qr_data_url,
-        "pairing_code": pairing_code,
+        "qr_code": None,
         "user": None,
-        "message": "WhatsApp login QR ready. Scan with WhatsApp camera or enter phone number below.",
+        "message": "Baileys WhatsApp Web bridge is offline. Run 'node bridge/server.js' locally or use Meta Cloud API.",
     }
 
 
@@ -168,31 +148,33 @@ async def start_whatsapp_web_session() -> Dict[str, Any]:
     bridge_url = settings.WA_BRIDGE_URL.rstrip("/")
 
     # If Node environment is ready, try calling bridge
+    import asyncio
     if is_node_environment_ready():
         if not await is_bridge_responsive():
             start_local_bridge_process()
+            await asyncio.sleep(1.0)
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                res = await client.post(f"{bridge_url}/start")
-                if res.status_code == 200:
-                    data = res.json()
-                    # If bridge returned a QR code or status, check if valid
-                    if data.get("qr_code"):
-                        data["bridge_online"] = True
-                        return data
-        except Exception:
-            pass
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(f"{bridge_url}/start")
+                # Poll briefly for Baileys socket to emit genuine QR code
+                for _ in range(6):
+                    await asyncio.sleep(0.4)
+                    st_res = await client.get(f"{bridge_url}/status")
+                    if st_res.status_code == 200:
+                        st_data = st_res.json()
+                        if st_data.get("qr_code") or st_data.get("status") in ("qr_ready", "connected"):
+                            st_data["bridge_online"] = True
+                            return st_data
+        except Exception as exc:
+            logger.error(f"Error starting Baileys bridge: {exc}")
 
-    # Instant Python-native QR code generator fallback (< 50ms)
-    qr_data_url, pairing_code, token = create_fresh_qr_session()
+    # If bridge is offline, return honest offline status
     return {
-        "status": "qr_ready",
+        "status": "disconnected",
         "bridge_online": False,
         "is_starting": False,
-        "qr_code": qr_data_url,
-        "pairing_code": pairing_code,
-        "pairing_token": token,
-        "message": "WhatsApp Login QR generated successfully. Scan with your camera or enter phone number.",
+        "qr_code": None,
+        "message": "Baileys WhatsApp Web bridge is offline on this server. To link your WhatsApp without Meta tokens, run 'node bridge/server.js' locally or switch to Meta Cloud API.",
     }
 
 
@@ -213,22 +195,35 @@ async def pair_whatsapp_web_session(
             detail="Please provide a valid 10-digit WhatsApp phone number.",
         )
 
-    session = set_session_connected(
-        phone_number=req.phone_number.strip(),
-        name="Arovida PET-CT Centre",
+    bridge_url = settings.WA_BRIDGE_URL.rstrip("/")
+    # Verify if Baileys bridge is genuinely connected
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            res = await client.get(f"{bridge_url}/status")
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("status") == "connected":
+                    if current_user:
+                        await set_user_setting(db, current_user.id, "whatsapp_gateway_type", "whatsapp_web_qr")
+                        await set_user_setting(db, current_user.id, "gateway_mode", "whatsapp_web_qr")
+                        await db.commit()
+                    return {
+                        "success": True,
+                        "status": "connected",
+                        "user": data.get("user"),
+                        "message": f"WhatsApp Web session active! Connected as {data.get('user', {}).get('phone')}",
+                    }
+    except Exception:
+        pass
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "WhatsApp Multi-Device authentication requires scanning the dynamic QR code with your phone camera "
+            "in WhatsApp > Linked Devices > Link a Device. Manual phone input without QR scan does not establish "
+            "a WhatsApp session."
+        ),
     )
-
-    if current_user:
-        await set_user_setting(db, current_user.id, "whatsapp_gateway_type", "whatsapp_web_qr")
-        await set_user_setting(db, current_user.id, "gateway_mode", "whatsapp_web_qr")
-        await db.commit()
-
-    return {
-        "success": True,
-        "status": "connected",
-        "user": session.get("user"),
-        "message": f"Successfully connected and bound WhatsApp session to {session['user']['phone']}!",
-    }
 
 
 @router.post("/logout", summary="Disconnect and log out WhatsApp Web session")
@@ -249,3 +244,49 @@ async def logout_whatsapp_web_session() -> Dict[str, Any]:
         "status": "disconnected",
         "message": "WhatsApp Web session logged out and cleared successfully.",
     }
+
+
+class DirectTestRequest(BaseModel):
+    to: str = "+919754119551"
+    message: str = "Arovida PET-CT Centre: Live session verification test message."
+    gateway_type: Optional[str] = "web"
+
+
+@router.post("/direct-test", summary="Send Direct WhatsApp Test Message")
+async def direct_whatsapp_test(
+    payload: DirectTestRequest,
+    current_user: Optional[User] = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Directly dispatches a test WhatsApp message to the specified recipient
+    via the requested gateway and returns the exact raw network response.
+    """
+    from app.services.whatsapp_service import get_whatsapp_gateway
+    from app.database import get_user_settings_dict
+
+    phone_id = settings.META_PHONE_NUMBER_ID or ""
+    access_token = settings.META_WHATSAPP_TOKEN or ""
+
+    if current_user:
+        tenant_settings = await get_user_settings_dict(db, current_user.id)
+        phone_id = tenant_settings.get("meta_phone_number_id") or phone_id
+        access_token = tenant_settings.get("meta_whatsapp_token") or access_token
+
+    gw = get_whatsapp_gateway(payload.gateway_type)
+    result = await gw.send_text_message(
+        to_phone=payload.to,
+        message=payload.message,
+        phone_number_id=phone_id,
+        access_token=access_token,
+    )
+
+    return {
+        "success": result.success,
+        "recipient": payload.to,
+        "gateway_used": gw.__class__.__name__,
+        "message_id": result.message_id,
+        "error_message": result.error_message,
+        "raw_network_response": result.raw_response,
+    }
+

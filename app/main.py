@@ -105,6 +105,20 @@ app.include_router(reminders.router)
 app.include_router(clients.router)
 
 
+from app.auth import get_optional_user
+
+
+@app.post("/api/whatsapp/direct-test", tags=["WhatsApp Direct Verification"], summary="Send Direct WhatsApp Test Message")
+async def api_direct_whatsapp_test(
+    payload: whatsapp_web.DirectTestRequest,
+    current_user=Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Direct WhatsApp dispatch verification test endpoint."""
+    return await whatsapp_web.direct_whatsapp_test(payload, current_user, db)
+
+
+
 @app.get("/", response_class=HTMLResponse, tags=["Dashboard"], summary="Serve Web Dashboard")
 async def serve_dashboard():
     """
