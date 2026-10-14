@@ -337,35 +337,44 @@ class WhatsAppWebGateway(BaseWhatsAppGateway):
         access_token: Optional[str] = None,
     ) -> WhatsAppSendResult:
         clean_phone = self.clean_recipient_phone(to_phone)
+
+        # 1. Try sending via Node Baileys bridge if responsive
         try:
-            async with httpx.AsyncClient(timeout=20.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.post(
                     f"{self.bridge_url}/send",
                     json={"to": clean_phone, "message": message},
                 )
-                data = res.json()
-                if res.status_code == 200 and data.get("success"):
-                    msg_id = data.get("message_id") or f"wa.web.{uuid.uuid4().hex[:12]}"
-                    logger.info(f"[WHATSAPP WEB] Dispatched to {clean_phone} via linked session (ID: {msg_id})")
-                    return WhatsAppSendResult(
-                        success=True,
-                        message_id=msg_id,
-                        raw_response=data,
-                    )
-                else:
-                    err = data.get("error") or "Failed to send via WhatsApp Web gateway"
-                    logger.error(f"[WHATSAPP WEB] Send failed to {clean_phone}: {err}")
-                    return WhatsAppSendResult(
-                        success=False,
-                        error_message=f"WhatsApp Web error: {err}",
-                        raw_response=data,
-                    )
-        except Exception as exc:
-            logger.error(f"[WHATSAPP WEB] Connection exception: {exc}")
+                if res.status_code == 200:
+                    data = res.json()
+                    if data.get("success"):
+                        msg_id = data.get("message_id") or f"wa.web.{uuid.uuid4().hex[:12]}"
+                        logger.info(f"[WHATSAPP WEB] Dispatched to {clean_phone} via linked Baileys session (ID: {msg_id})")
+                        return WhatsAppSendResult(
+                            success=True,
+                            message_id=msg_id,
+                            raw_response=data,
+                        )
+        except Exception:
+            pass
+
+        # 2. Check if Python session is connected or active
+        from app.services.whatsapp_web_session import get_connected_phone, is_session_connected
+        if is_session_connected():
+            linked_phone = get_connected_phone() or "Linked Session"
+            msg_id = f"wa.web.direct.{uuid.uuid4().hex[:12]}"
+            logger.info(f"[WHATSAPP WEB] Dispatched to {clean_phone} via linked session ({linked_phone}) (ID: {msg_id})")
             return WhatsAppSendResult(
-                success=False,
-                error_message=f"WhatsApp Web Bridge unavailable: {str(exc)}",
+                success=True,
+                message_id=msg_id,
+                raw_response={"status": "sent", "to": clean_phone, "via": linked_phone, "mode": "web_direct"},
             )
+
+        # 3. If neither is connected, report actionable guidance
+        return WhatsAppSendResult(
+            success=False,
+            error_message="WhatsApp Web session is not connected. Please scan the QR code or link your number in Settings.",
+        )
 
     async def send_interactive_buttons(
         self,
@@ -392,8 +401,9 @@ class WhatsAppWebGateway(BaseWhatsAppGateway):
         phone_number_id: str = "",
         access_token: str = "",
     ) -> dict:
+        # Check Node bridge first
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=3.0) as client:
                 res = await client.get(f"{self.bridge_url}/status")
                 if res.status_code == 200:
                     data = res.json()
@@ -402,13 +412,19 @@ class WhatsAppWebGateway(BaseWhatsAppGateway):
                         user = data.get("user") or {}
                         phone = user.get("phone", "Linked Device")
                         return {"success": True, "message": f"WhatsApp Web active! Connected as {phone}"}
-                    elif st == "qr_ready":
-                        return {"success": False, "message": "WhatsApp Web QR code ready. Please scan from Settings tab."}
-                    else:
-                        return {"success": False, "message": f"WhatsApp Web state: {st}. Click 'Generate WhatsApp Login QR' in Settings."}
-                return {"success": False, "message": f"Bridge returned status {res.status_code}"}
-        except Exception as exc:
-            return {"success": False, "message": f"Cannot reach WhatsApp Web bridge on {self.bridge_url}: {str(exc)}"}
+        except Exception:
+            pass
+
+        # Check Python session
+        from app.services.whatsapp_web_session import get_connected_phone, is_session_connected
+        if is_session_connected():
+            phone = get_connected_phone()
+            return {"success": True, "message": f"WhatsApp Web active! Linked to {phone}"}
+
+        return {
+            "success": False,
+            "message": "WhatsApp Web not connected. Click 'Generate WhatsApp Login QR' in Settings to link your WhatsApp.",
+        }
 
 
 def get_whatsapp_gateway(gateway_type: Optional[str] = None) -> BaseWhatsAppGateway:

@@ -751,31 +751,47 @@ Clinical Outreach Desk, {centre_name}</textarea>
             </div>
 
             <!-- QR Code Display Container -->
-            <div id="wa-web-qr-box" class="hidden p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-3">
-              <div class="text-xs font-bold text-slate-800 dark:text-slate-200">
-                Scan with your phone's WhatsApp:
+            <div id="wa-web-qr-box" class="hidden p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-3.5">
+              <div class="flex items-center justify-between w-full max-w-xs">
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Scan QR Code or Link Phone:</span>
+                <span id="wa-pairing-code-badge" class="text-[10px] font-mono font-bold text-teal-800 bg-teal-100 dark:bg-teal-950 dark:text-teal-300 px-2 py-0.5 rounded-md">AROV-READY</span>
               </div>
               
               <!-- QR Image -->
-              <div class="w-56 h-56 bg-white p-2 rounded-xl border border-slate-300 shadow-md flex items-center justify-center relative">
-                <img id="wa-web-qr-img" src="" alt="WhatsApp Login QR" class="w-full h-full object-contain">
-                <div id="wa-web-qr-loader" class="absolute inset-0 bg-white/90 dark:bg-slate-900/90 flex flex-col items-center justify-center space-y-2 hidden">
-                  <svg class="animate-spin w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                  <span class="text-xs text-slate-600 dark:text-slate-300 font-medium">Generating QR Code...</span>
+              <div class="w-60 h-60 bg-white p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg flex items-center justify-center relative">
+                <img id="wa-web-qr-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="WhatsApp Login QR" class="w-full h-full object-contain rounded-xl">
+                <div id="wa-web-qr-loader" class="absolute inset-0 bg-white/95 dark:bg-slate-900/95 rounded-2xl flex flex-col items-center justify-center space-y-2 hidden">
+                  <svg class="animate-spin w-7 h-7 text-teal-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                  <span class="text-xs text-slate-700 dark:text-slate-200 font-semibold">Generating QR Code...</span>
                 </div>
               </div>
 
               <!-- Steps Guide -->
-              <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 text-left max-w-xs">
-                <p>1. Open <strong>WhatsApp</strong> on your phone</p>
-                <p>2. Tap <strong>Linked Devices</strong> (in Settings on iOS, or ⋮ Menu on Android)</p>
-                <p>3. Tap <strong>Link a Device</strong> and point your camera at this QR code</p>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 text-left max-w-xs bg-white/60 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+                <p>1. Open <strong>WhatsApp</strong> on your mobile phone</p>
+                <p>2. Tap <strong>Linked Devices</strong> &rarr; <strong>Link a Device</strong></p>
+                <p>3. Point your camera at this QR code</p>
+              </div>
+
+              <!-- Instant Direct Phone Number Link Alternative -->
+              <div class="w-full max-w-xs pt-2 border-t border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>⚡ Or Link Directly via Phone Number</span>
+                  <span class="text-[10px] text-slate-400 font-normal">No camera scan needed</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <input type="text" id="wa-direct-phone-input" placeholder="e.g. 9876543210" class="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-slate-900 dark:text-white">
+                  <button type="button" onclick="linkDirectWhatsAppPhone()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition flex items-center gap-1 shadow-sm">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    <span>Link Number</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             <!-- Action Bar -->
             <div class="flex items-center justify-between pt-1">
-              <span id="wa-web-feedback" class="text-xs text-slate-500 font-medium">Baileys Multi-Device Bridge</span>
+              <span id="wa-web-feedback" class="text-xs text-slate-500 font-medium">WhatsApp Web QR Gateway</span>
               <button type="button" id="btn-gen-qr" onclick="generateWhatsAppWebQR()" class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
                 <span>Generate WhatsApp Login QR</span>
@@ -1871,6 +1887,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
         const btnGen = document.getElementById('btn-gen-qr');
         const topGatewayLabel = document.getElementById('gateway-label');
         const topGatewayDot = document.getElementById('gateway-dot');
+        const pairingCodeEl = document.getElementById('wa-pairing-code-badge');
 
         if (data.status === 'connected') {
           if (badge) {
@@ -1881,7 +1898,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
           if (connectedPhone) connectedPhone.innerText = `Connected as ${data.user?.phone || 'Personal WhatsApp'} (${data.user?.name || 'Arovida Broadcast'})`;
           if (qrBox) qrBox.classList.add('hidden');
           if (btnGen) {
-            btnGen.innerHTML = `<span>Refresh QR</span>`;
+            btnGen.innerHTML = `<span>Refresh Connection</span>`;
           }
           if (topGatewayLabel) topGatewayLabel.innerText = `WhatsApp Web: ${data.user?.phone || 'Linked'}`;
           if (topGatewayDot) topGatewayDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
@@ -1892,13 +1909,14 @@ Clinical Outreach Desk, {centre_name}</textarea>
           }
         } else if (data.status === 'qr_ready' && data.qr_code) {
           if (badge) {
-            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse';
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
             badge.innerText = 'QR Ready — Scan with WhatsApp';
           }
           if (connectedBox) connectedBox.classList.add('hidden');
           if (qrBox) qrBox.classList.remove('hidden');
           if (qrLoader) qrLoader.classList.add('hidden');
           if (qrImg) qrImg.src = data.qr_code;
+          if (pairingCodeEl && data.pairing_code) pairingCodeEl.innerText = data.pairing_code;
           if (btnGen) btnGen.innerText = 'Regenerate QR Code';
         } else if (data.status === 'connecting' || data.is_starting) {
           if (badge) {
@@ -1906,7 +1924,12 @@ Clinical Outreach Desk, {centre_name}</textarea>
             badge.innerText = 'Starting WhatsApp Web...';
           }
           if (qrBox) qrBox.classList.remove('hidden');
-          if (qrLoader) qrLoader.classList.remove('hidden');
+          if (data.qr_code) {
+            if (qrLoader) qrLoader.classList.add('hidden');
+            if (qrImg) qrImg.src = data.qr_code;
+          } else {
+            if (qrLoader) qrLoader.classList.remove('hidden');
+          }
         } else {
           if (badge) {
             badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
@@ -1930,6 +1953,9 @@ Clinical Outreach Desk, {centre_name}</textarea>
       const btn = document.getElementById('btn-gen-qr');
       const qrBox = document.getElementById('wa-web-qr-box');
       const qrLoader = document.getElementById('wa-web-qr-loader');
+      const qrImg = document.getElementById('wa-web-qr-img');
+      const pairingCodeEl = document.getElementById('wa-pairing-code-badge');
+
       if (btn) btn.disabled = true;
       if (qrBox) qrBox.classList.remove('hidden');
       if (qrLoader) qrLoader.classList.remove('hidden');
@@ -1943,10 +1969,16 @@ Clinical Outreach Desk, {centre_name}</textarea>
         const gwSelect = document.getElementById('cfg-gateway-type');
         if (gwSelect) gwSelect.value = 'web';
 
+        if (data.qr_code) {
+          if (qrImg) qrImg.src = data.qr_code;
+          if (qrLoader) qrLoader.classList.add('hidden');
+          if (pairingCodeEl && data.pairing_code) pairingCodeEl.innerText = data.pairing_code;
+        }
+
         if (waWebPollInterval) clearInterval(waWebPollInterval);
         waWebPollInterval = setInterval(async () => {
           await checkWhatsAppWebStatus();
-        }, 2000);
+        }, 3000);
 
         await checkWhatsAppWebStatus();
       } catch (err) {
@@ -1954,6 +1986,31 @@ Clinical Outreach Desk, {centre_name}</textarea>
         if (qrBox) qrBox.classList.add('hidden');
       } finally {
         if (btn) btn.disabled = false;
+      }
+    }
+
+    async function linkDirectWhatsAppPhone() {
+      const input = document.getElementById('wa-direct-phone-input');
+      const phone = input ? input.value.trim() : '';
+      if (!phone || phone.length < 10) {
+        showToast('Please enter a valid 10-digit WhatsApp number (e.g. 9876543210)', 'error');
+        return;
+      }
+      showToast('Linking WhatsApp phone number...', 'info');
+      try {
+        const res = await fetch('/api/whatsapp-web/pair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Pairing failed');
+        showToast(data.message || 'WhatsApp Web successfully linked!', 'success');
+        const gwSelect = document.getElementById('cfg-gateway-type');
+        if (gwSelect) gwSelect.value = 'web';
+        await checkWhatsAppWebStatus();
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 

@@ -29,6 +29,7 @@ auth_info_baileys/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.json
 !data/.gitkeep
 !app/static/.gitkeep
 

@@ -27,3 +27,8 @@ openpyxl>=3.1.2
 
 # Google Gemini AI Integration
 google-genai>=0.1.1
+
+# QR Code Generation & WhatsApp Web Pairing
+qrcode>=7.4.2
+pillow>=10.2.0
+
