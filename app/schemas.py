@@ -311,6 +311,15 @@ class CampaignCreate(BaseModel):
     cron_schedule: Optional[str] = Field("every_monday", description="every_monday, dates_1_and_16, every_friday, daily, immediate")
     scheduled_time: str = Field("10:00", description="Dispatch time of day (HH:MM in 24hr format, e.g. 10:00)")
     send_immediately: bool = Field(False, description="Trigger blast immediately upon saving")
+    # Anti-Ban Smart Human Throttler settings
+    batch_size: int = Field(20, ge=1, le=500, description="Number of doctors per batch (e.g. 10, 20, 50)")
+    batch_interval_minutes: int = Field(60, ge=1, le=1440, description="Interval between batches in minutes (e.g. 30, 60, 120)")
+    message_delay_seconds: float = Field(30.0, ge=5.0, le=300.0, description="Delay between individual messages in seconds")
+    # Flexible Custom Recurring Scheduler settings
+    frequency_type: Literal["ONE_TIME", "EVERY_X_DAYS", "WEEKLY_DAY", "MONTHLY_DATES"] = Field("WEEKLY_DAY", description="Dynamic recurrence type")
+    interval_days: Optional[int] = Field(None, ge=1, le=365, description="Interval in days for EVERY_X_DAYS")
+    scheduled_day_of_week: Optional[str] = Field("monday", description="Target weekday for WEEKLY_DAY (monday-sunday)")
+    scheduled_month_dates: Optional[str] = Field("1, 16", description="Target monthly dates for MONTHLY_DATES (e.g. 1, 16)")
 
 
 class CampaignResponse(BaseModel):
@@ -321,6 +330,14 @@ class CampaignResponse(BaseModel):
     schedule_type: str
     cron_schedule: Optional[str] = None
     scheduled_time: str = "10:00"
+    batch_size: int = 20
+    batch_interval_minutes: int = 60
+    message_delay_seconds: float = 30.0
+    last_dispatched_doctor_index: int = 0
+    frequency_type: str = "WEEKLY_DAY"
+    interval_days: Optional[int] = None
+    scheduled_day_of_week: Optional[str] = "monday"
+    scheduled_month_dates: Optional[str] = "1, 16"
     next_run_at: Optional[datetime] = None
     last_run_at: Optional[datetime] = None
     status: str

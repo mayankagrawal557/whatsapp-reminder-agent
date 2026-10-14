@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -181,6 +182,16 @@ class BroadcastCampaign(Base):
     schedule_type = Column(String(32), default="ONE_TIME", nullable=False)  # "ONE_TIME" or "RECURRING"
     cron_schedule = Column(String(64), nullable=True, default="immediate")  # "immediate", "every_monday", "dates_1_and_16", "every_friday", "daily"
     scheduled_time = Column(String(16), default="10:00", nullable=False)
+    # Anti-Ban Smart Human Throttler settings
+    batch_size = Column(Integer, default=20, nullable=False)
+    batch_interval_minutes = Column(Integer, default=60, nullable=False)
+    message_delay_seconds = Column(Float, default=30.0, nullable=False)
+    last_dispatched_doctor_index = Column(Integer, default=0, nullable=False)
+    # Flexible Custom Recurring Scheduler settings
+    frequency_type = Column(String(32), default="WEEKLY_DAY", nullable=False)  # "ONE_TIME", "EVERY_X_DAYS", "WEEKLY_DAY", "MONTHLY_DATES"
+    interval_days = Column(Integer, nullable=True)
+    scheduled_day_of_week = Column(String(32), nullable=True, default="monday")
+    scheduled_month_dates = Column(String(64), nullable=True, default="1, 16")
     next_run_at = Column(DateTime(timezone=True), nullable=True, index=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(32), default="ACTIVE", index=True, nullable=False)  # "DRAFT", "ACTIVE", "PAUSED", "COMPLETED"
@@ -375,6 +386,26 @@ async def init_db() -> None:
         if "brand_color" not in user_cols and len(user_cols) > 0:
             await conn.execute(text("ALTER TABLE users ADD COLUMN brand_color VARCHAR(32) DEFAULT '#0d9488';"))
 
+        # Check broadcast_campaigns table columns for Anti-Ban Throttler & Flexible Scheduler
+        camp_info = await conn.execute(text("PRAGMA table_info(broadcast_campaigns);"))
+        camp_cols = {row[1] for row in camp_info.fetchall()}
+        if "batch_size" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN batch_size INTEGER DEFAULT 20;"))
+        if "batch_interval_minutes" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN batch_interval_minutes INTEGER DEFAULT 60;"))
+        if "message_delay_seconds" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN message_delay_seconds REAL DEFAULT 30.0;"))
+        if "last_dispatched_doctor_index" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN last_dispatched_doctor_index INTEGER DEFAULT 0;"))
+        if "frequency_type" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN frequency_type VARCHAR(32) DEFAULT 'WEEKLY_DAY';"))
+        if "interval_days" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN interval_days INTEGER;"))
+        if "scheduled_day_of_week" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN scheduled_day_of_week VARCHAR(32) DEFAULT 'monday';"))
+        if "scheduled_month_dates" not in camp_cols and len(camp_cols) > 0:
+            await conn.execute(text("ALTER TABLE broadcast_campaigns ADD COLUMN scheduled_month_dates VARCHAR(64) DEFAULT '1, 16';"))
+
     # Seed default clinic user tenant & sample doctor contacts
     async with AsyncSessionLocal() as session:
         # Avoid circular import by hashing locally with bcrypt
@@ -417,68 +448,11 @@ async def init_db() -> None:
         )
         await session.commit()
 
-        # Seed sample referring doctors if table is empty
-        doc_count_res = await session.execute(select(DoctorContact).where(DoctorContact.user_id == demo_user.id))
-        existing_docs = doc_count_res.scalars().all()
-        if not existing_docs:
-            sample_doctors = [
-                DoctorContact(
-                    id=str(uuid.uuid4()),
-                    user_id=demo_user.id,
-                    doctor_name="Dr. Rajesh Sharma",
-                    phone_number="+919876543210",
-                    specialty="Medical Oncology",
-                    hospital="Tata Memorial Hospital",
-                    is_active=True,
-                ),
-                DoctorContact(
-                    id=str(uuid.uuid4()),
-                    user_id=demo_user.id,
-                    doctor_name="Dr. Ananya Iyer",
-                    phone_number="+919812345678",
-                    specialty="Surgical Oncology",
-                    hospital="Apollo Cancer Centre",
-                    is_active=True,
-                ),
-                DoctorContact(
-                    id=str(uuid.uuid4()),
-                    user_id=demo_user.id,
-                    doctor_name="Dr. Vikram Malhotra",
-                    phone_number="+919988776655",
-                    specialty="Pulmonology & Chest Medicine",
-                    hospital="Fortis Memorial Research Institute",
-                    is_active=True,
-                ),
-                DoctorContact(
-                    id=str(uuid.uuid4()),
-                    user_id=demo_user.id,
-                    doctor_name="Dr. Sneha Patel",
-                    phone_number="+919765432109",
-                    specialty="Radiation Oncology",
-                    hospital="Max Super Speciality Hospital",
-                    is_active=True,
-                ),
-                DoctorContact(
-                    id=str(uuid.uuid4()),
-                    user_id=demo_user.id,
-                    doctor_name="Dr. Amit Verma",
-                    phone_number="+919823456789",
-                    specialty="Internal Medicine & Oncology",
-                    hospital="City Care Hospital",
-                    is_active=True,
-                ),
-                DoctorContact(
-                    id=str(uuid.uuid4()),
-                    user_id=demo_user.id,
-                    doctor_name="Dr. Meera Nambiar",
-                    phone_number="+919834567890",
-                    specialty="Hemato-Oncology",
-                    hospital="AIIMS Oncology Unit",
-                    is_active=True,
-                ),
-            ]
-            session.add_all(sample_doctors)
-            await session.commit()
+        # Purge hardcoded dummy oncologist contacts - directory will only hold real user contacts
+        await session.execute(
+            text("DELETE FROM doctor_contacts WHERE phone_number IN ('+919876543210', '+919812345678', '+919988776655', '+919765432109', '+919823456789', '+919834567890');")
+        )
+        await session.commit()
 
         # Seed sample Monday campaign if none exists
         camp_res = await session.execute(select(BroadcastCampaign).where(BroadcastCampaign.user_id == demo_user.id))
@@ -501,9 +475,15 @@ async def init_db() -> None:
                 ),
                 schedule_type="RECURRING",
                 cron_schedule="every_monday",
+                frequency_type="WEEKLY_DAY",
+                scheduled_day_of_week="monday",
+                batch_size=20,
+                batch_interval_minutes=60,
+                message_delay_seconds=30.0,
+                last_dispatched_doctor_index=0,
                 scheduled_time="10:00",
                 status="ACTIVE",
-                total_recipients=6,
+                total_recipients=0,
                 total_sent=0,
                 total_failed=0,
             )

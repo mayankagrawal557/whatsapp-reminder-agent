@@ -4,6 +4,7 @@ Coordinates flexible recurring broadcasts (every Monday, 1st & 16th, daily, 1-cl
 applies Meta Cloud API rate-limiting delays (0.2s–0.5s pause), and logs dispatch results.
 """
 import asyncio
+import calendar
 import logging
 import random
 from datetime import datetime, time as dtime, timedelta, timezone
@@ -40,65 +41,103 @@ def parse_scheduled_time(time_str: str) -> tuple[int, int]:
 
 
 def calculate_next_run_time(
-    cron_schedule: Optional[str],
+    cron_schedule: Optional[str] = None,
     scheduled_time: str = "10:00",
     from_dt: Optional[datetime] = None,
+    frequency_type: Optional[str] = None,
+    interval_days: Optional[int] = None,
+    scheduled_day_of_week: Optional[str] = None,
+    scheduled_month_dates: Optional[str] = None,
 ) -> Optional[datetime]:
     """
-    Calculate the next execution timestamp based on flexible recurring rules:
-    - 'every_monday': Next upcoming Monday at scheduled_time (e.g. 10:00 AM)
-    - 'every_friday': Next upcoming Friday at scheduled_time
-    - 'dates_1_and_16': Next 1st or 16th day of month at scheduled_time
-    - 'daily': Next occurrence tomorrow at scheduled_time
-    - 'immediate': Current timestamp
+    Calculate the next execution timestamp based on flexible dynamic recurring rules:
+    - EVERY_X_DAYS: Runs every X days (e.g. 10, 14, 21 days) at scheduled_time
+    - WEEKLY_DAY: Specific day of the week (Monday through Sunday) at scheduled_time
+    - MONTHLY_DATES: Specific dates of the month (e.g. "1, 16" or "5, 20") at scheduled_time
+    - ONE_TIME: Immediate blast / single trigger
+    Also supports backward-compatible cron_schedule values ('every_monday', 'dates_1_and_16', 'daily', etc.).
     """
     base_dt = from_dt or datetime.now(timezone.utc)
     hour, minute = parse_scheduled_time(scheduled_time)
+
+    # Determine frequency type
+    freq = (frequency_type or "").strip().upper()
     sched = (cron_schedule or "").strip().lower()
 
-    if sched == "immediate":
+    if not freq:
+        if sched in ("every_monday", "weekly"):
+            freq = "WEEKLY_DAY"
+            scheduled_day_of_week = "monday"
+        elif sched == "every_friday":
+            freq = "WEEKLY_DAY"
+            scheduled_day_of_week = "friday"
+        elif sched == "dates_1_and_16":
+            freq = "MONTHLY_DATES"
+            scheduled_month_dates = "1, 16"
+        elif sched == "daily":
+            freq = "EVERY_X_DAYS"
+            interval_days = 1
+        elif sched == "immediate":
+            freq = "ONE_TIME"
+        else:
+            freq = "WEEKLY_DAY"
+
+    if freq == "ONE_TIME":
         return base_dt
 
-    if sched == "every_monday":
-        # Monday is weekday 0
-        candidate = base_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        days_ahead = (0 - base_dt.weekday()) % 7
-        if days_ahead == 0 and candidate <= base_dt:
-            days_ahead = 7
-        return candidate + timedelta(days=days_ahead)
-
-    elif sched == "every_friday":
-        # Friday is weekday 4
-        candidate = base_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        days_ahead = (4 - base_dt.weekday()) % 7
-        if days_ahead == 0 and candidate <= base_dt:
-            days_ahead = 7
-        return candidate + timedelta(days=days_ahead)
-
-    elif sched == "dates_1_and_16":
-        # 1st and 16th of every month
-        year = base_dt.year
-        month = base_dt.month
-        candidate_1st = datetime(year, month, 1, hour, minute, 0, tzinfo=timezone.utc)
-        candidate_16th = datetime(year, month, 16, hour, minute, 0, tzinfo=timezone.utc)
-
-        if base_dt < candidate_1st:
-            return candidate_1st
-        elif base_dt < candidate_16th:
-            return candidate_16th
-        else:
-            # Advance to 1st of next month
-            next_month = month + 1 if month < 12 else 1
-            next_year = year if month < 12 else year + 1
-            return datetime(next_year, next_month, 1, hour, minute, 0, tzinfo=timezone.utc)
-
-    elif sched == "daily":
+    if freq == "EVERY_X_DAYS":
+        days = max(1, interval_days or 1)
         candidate = base_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
         if candidate <= base_dt:
-            candidate += timedelta(days=1)
+            candidate += timedelta(days=days)
         return candidate
 
-    # Default fallback: tomorrow at specified time
+    if freq == "WEEKLY_DAY":
+        weekday_map = {
+            "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+            "friday": 4, "saturday": 5, "sunday": 6
+        }
+        day_str = (scheduled_day_of_week or "monday").strip().lower()
+        target_weekday = weekday_map.get(day_str, 0)
+
+        candidate = base_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        days_ahead = (target_weekday - base_dt.weekday()) % 7
+        if days_ahead == 0 and candidate <= base_dt:
+            days_ahead = 7
+        return candidate + timedelta(days=days_ahead)
+
+    if freq == "MONTHLY_DATES":
+        dates_raw = (scheduled_month_dates or "1, 16").replace("and", ",").replace("&", ",")
+        valid_dates = []
+        for part in dates_raw.split(","):
+            part = part.strip()
+            if part.isdigit():
+                d = int(part)
+                if 1 <= d <= 31:
+                    valid_dates.append(d)
+        if not valid_dates:
+            valid_dates = [1, 16]
+        valid_dates = sorted(list(set(valid_dates)))
+
+        year = base_dt.year
+        month = base_dt.month
+
+        # Try current month
+        _, max_days_curr = calendar.monthrange(year, month)
+        for d in valid_dates:
+            day = min(d, max_days_curr)
+            cand = datetime(year, month, day, hour, minute, 0, tzinfo=timezone.utc)
+            if cand > base_dt:
+                return cand
+
+        # Advance to next month
+        next_month = month + 1 if month < 12 else 1
+        next_year = year if month < 12 else year + 1
+        _, max_days_next = calendar.monthrange(next_year, next_month)
+        day = min(valid_dates[0], max_days_next)
+        return datetime(next_year, next_month, day, hour, minute, 0, tzinfo=timezone.utc)
+
+    # Fallback
     candidate = base_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if candidate <= base_dt:
         candidate += timedelta(days=1)
@@ -129,31 +168,54 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
 
     centre_name = centre_user.business_name if centre_user else settings.DEFAULT_BUSINESS_NAME
 
-    # Fetch active doctors for this centre
+    # Fetch active doctors for this centre deterministically
     doc_stmt = (
         select(DoctorContact)
         .where(
             DoctorContact.user_id == campaign.user_id,
             DoctorContact.is_active == True,
         )
-        .order_by(DoctorContact.doctor_name.asc())
+        .order_by(DoctorContact.doctor_name.asc(), DoctorContact.id.asc())
     )
     doc_res = await session.execute(doc_stmt)
     active_doctors = doc_res.scalars().all()
 
     total_doctors = len(active_doctors)
-    logger.info(f"Executing Campaign [{campaign.campaign_title}] to {total_doctors} active doctors.")
+    logger.info(f"Preparing Campaign [{campaign.campaign_title}] for {total_doctors} active doctors.")
 
     if total_doctors == 0:
         campaign.last_run_at = datetime.now(timezone.utc)
         campaign.total_recipients = 0
-        if campaign.schedule_type == "ONE_TIME":
+        campaign.last_dispatched_doctor_index = 0
+        if campaign.schedule_type == "ONE_TIME" or campaign.frequency_type == "ONE_TIME":
             campaign.status = "COMPLETED"
             campaign.next_run_at = None
         else:
-            campaign.next_run_at = calculate_next_run_time(campaign.cron_schedule, campaign.scheduled_time)
+            campaign.next_run_at = calculate_next_run_time(
+                cron_schedule=campaign.cron_schedule,
+                scheduled_time=campaign.scheduled_time,
+                from_dt=datetime.now(timezone.utc),
+                frequency_type=campaign.frequency_type,
+                interval_days=campaign.interval_days,
+                scheduled_day_of_week=campaign.scheduled_day_of_week,
+                scheduled_month_dates=campaign.scheduled_month_dates,
+            )
         await session.commit()
         return {"success": True, "sent": 0, "failed": 0, "message": "No active doctors in directory"}
+
+    # Determine batch boundaries using persistent state tracking
+    start_idx = campaign.last_dispatched_doctor_index or 0
+    if start_idx >= total_doctors:
+        start_idx = 0
+
+    batch_size = max(1, campaign.batch_size or 20)
+    end_idx = min(start_idx + batch_size, total_doctors)
+    batch_doctors = active_doctors[start_idx:end_idx]
+
+    logger.info(
+        f"Campaign [{campaign.campaign_title}]: Executing batch doctors {start_idx + 1} to {end_idx} "
+        f"of {total_doctors} (Batch size: {len(batch_doctors)}, Jitter Delay: {campaign.message_delay_seconds}s)."
+    )
 
     # Fetch tenant WhatsApp settings and active WhatsApp Web QR session
     from app.services.whatsapp_web_session import is_session_connected, get_connected_phone
@@ -220,9 +282,8 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
             logger.error(f"[DISPATCH ROUTER] {err_msg}")
             campaign.last_run_at = datetime.now(timezone.utc)
             campaign.total_recipients = total_doctors
-            campaign.total_sent = 0
-            campaign.total_failed = total_doctors
-            for doctor in active_doctors:
+            campaign.total_failed = (campaign.total_failed or 0) + len(batch_doctors)
+            for doctor in batch_doctors:
                 log_entry = BroadcastLog(
                     user_id=campaign.user_id,
                     campaign_id=campaign.id,
@@ -237,7 +298,7 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
                 )
                 session.add(log_entry)
             await session.commit()
-            return {"success": False, "error": err_msg, "sent": 0, "failed": total_doctors}
+            return {"success": False, "error": err_msg, "sent": 0, "failed": len(batch_doctors)}
         else:
             gateway = get_whatsapp_gateway("meta_cloud_api")
             logger.info(f"[DISPATCH ROUTER] Mode: meta_cloud_api. Verified credentials for Phone ID: {phone_id[:4]}***.")
@@ -246,7 +307,7 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
     failed_count = 0
     now_utc = datetime.now(timezone.utc)
 
-    for index, doctor in enumerate(active_doctors):
+    for index, doctor in enumerate(batch_doctors):
         # 1. Personalize template tags
         doc_specialty = doctor.specialty or "Doctor / Oncologist"
         doc_hospital = doctor.hospital or "Medical Practice"
@@ -297,31 +358,66 @@ async def execute_campaign_broadcast(campaign_id: str, session) -> Dict[str, Any
         )
         session.add(log_entry)
 
-        # 4. Respect Meta Cloud API rate limits (0.2s–0.4s pause)
-        if index < total_doctors - 1:
-            await asyncio.sleep(random.uniform(0.2, 0.4))
+        # 4. Anti-Ban Human Jitter Delay between individual messages (10s–60s slider with ±15% natural jitter)
+        if index < len(batch_doctors) - 1:
+            base_delay = campaign.message_delay_seconds if (campaign.message_delay_seconds and campaign.message_delay_seconds >= 1.0) else 30.0
+            jitter_delay = base_delay * random.uniform(0.85, 1.15)
+            logger.debug(f"Anti-ban human jitter: sleeping {jitter_delay:.2f}s before next recipient.")
+            await asyncio.sleep(jitter_delay)
 
-    # Update campaign statistics
+    # Update campaign statistics & state tracking
     campaign.last_run_at = datetime.now(timezone.utc)
     campaign.total_recipients = total_doctors
-    campaign.total_sent = sent_count
-    campaign.total_failed = failed_count
+    campaign.total_sent = (campaign.total_sent or 0) + sent_count
+    campaign.total_failed = (campaign.total_failed or 0) + failed_count
+    campaign.last_dispatched_doctor_index = end_idx
 
-    if campaign.schedule_type == "ONE_TIME":
-        campaign.status = "COMPLETED"
-        campaign.next_run_at = None
+    # Check if more doctors remain in this batch sequence
+    if end_idx < total_doctors:
+        # More batches remain in pipeline! Wait batch_interval_minutes before resuming next batch
+        pause_mins = max(1, campaign.batch_interval_minutes or 60)
+        campaign.next_run_at = datetime.now(timezone.utc) + timedelta(minutes=pause_mins)
+        campaign.status = "ACTIVE"
+        logger.info(
+            f"Campaign [{campaign.campaign_title}]: Batch completed ({sent_count} sent, {failed_count} failed). "
+            f"Remaining: {total_doctors - end_idx} doctors. Next batch scheduled at {campaign.next_run_at} (in {pause_mins}m)."
+        )
     else:
-        campaign.next_run_at = calculate_next_run_time(campaign.cron_schedule, campaign.scheduled_time, from_dt=now_utc)
+        # All doctors in directory have received this cycle!
+        campaign.last_dispatched_doctor_index = 0
+        if campaign.schedule_type == "ONE_TIME" or campaign.frequency_type == "ONE_TIME":
+            campaign.status = "COMPLETED"
+            campaign.next_run_at = None
+            logger.info(f"Campaign [{campaign.campaign_title}] completed all {total_doctors} doctors. Marked COMPLETED.")
+        else:
+            campaign.next_run_at = calculate_next_run_time(
+                cron_schedule=campaign.cron_schedule,
+                scheduled_time=campaign.scheduled_time,
+                from_dt=datetime.now(timezone.utc),
+                frequency_type=campaign.frequency_type,
+                interval_days=campaign.interval_days,
+                scheduled_day_of_week=campaign.scheduled_day_of_week,
+                scheduled_month_dates=campaign.scheduled_month_dates,
+            )
+            campaign.status = "ACTIVE"
+            logger.info(
+                f"Campaign [{campaign.campaign_title}] completed full cycle to all {total_doctors} doctors. "
+                f"Next recurring cycle at {campaign.next_run_at}."
+            )
 
     await session.commit()
-    logger.info(f"Campaign [{campaign.campaign_title}] completed: {sent_count} sent, {failed_count} failed.")
+    logger.info(f"Campaign [{campaign.campaign_title}] batch done: {sent_count} sent, {failed_count} failed.")
 
     return {
         "success": True,
         "campaign_id": campaign.id,
-        "total": total_doctors,
-        "sent": sent_count,
-        "failed": failed_count,
+        "batch_sent": sent_count,
+        "batch_failed": failed_count,
+        "total_doctors": total_doctors,
+        "last_index": campaign.last_dispatched_doctor_index,
+        "remaining": max(0, total_doctors - end_idx),
+        "status": campaign.status,
+        "next_run_at": campaign.next_run_at.isoformat() if campaign.next_run_at else None,
     }
 
 

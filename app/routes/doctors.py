@@ -246,6 +246,34 @@ async def toggle_doctor_status(
     return doc
 
 
+@router.delete("/clear-all", summary="Clear all doctor contacts for this centre")
+@router.post("/clear-all", summary="Clear all doctor contacts for this centre (POST fallback)")
+async def clear_all_doctors(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Purge all doctor contacts from the directory for the authenticated centre.
+    Guarantees the directory contains only real, verified contacts.
+    """
+    from sqlalchemy import delete
+    count_res = await db.execute(
+        select(func.count(DoctorContact.id)).where(DoctorContact.user_id == current_user.id)
+    )
+    count = count_res.scalar() or 0
+
+    await db.execute(
+        delete(DoctorContact).where(DoctorContact.user_id == current_user.id)
+    )
+    await db.commit()
+    logger.info(f"Purged all {count} doctor contacts for centre [{current_user.id}].")
+    return {
+        "success": True,
+        "message": f"Successfully deleted all {count} doctor contacts from directory.",
+        "deleted": count,
+    }
+
+
 @router.delete("/{doctor_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete doctor contact")
 async def delete_doctor(
     doctor_id: str,
@@ -267,48 +295,3 @@ async def delete_doctor(
     await db.delete(doc)
     await db.commit()
     return None
-
-
-@router.post("/seed-demo", summary="Seed 10 realistic referring doctors for testing")
-async def seed_demo_doctors(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Instantly seed 10 realistic oncology & physician contacts for immediate demonstration.
-    """
-    demo_list = [
-        ("Dr. Rajesh Sharma", "+919876543210", "Medical Oncology", "Tata Memorial Hospital"),
-        ("Dr. Ananya Iyer", "+919812345678", "Surgical Oncology", "Apollo Cancer Centre"),
-        ("Dr. Vikram Malhotra", "+919988776655", "Pulmonology & Chest Medicine", "Fortis Memorial Institute"),
-        ("Dr. Sneha Patel", "+919765432109", "Radiation Oncology", "Max Super Speciality Hospital"),
-        ("Dr. Amit Verma", "+919823456789", "Internal Medicine & Oncology", "City Care Hospital"),
-        ("Dr. Meera Nambiar", "+919834567890", "Hemato-Oncology", "AIIMS Oncology Unit"),
-        ("Dr. Siddharth Rao", "+919845678901", "Gastrointestinal Oncology", "Manipal Hospital"),
-        ("Dr. Pooja Deshmukh", "+919856789012", "Urologic Oncology", "Kokilaben Dhirubhai Ambani Hospital"),
-        ("Dr. Rohan Kulkarni", "+919867890123", "Neuro-Oncology", "Hinduja Hospital"),
-        ("Dr. Kavita Singhania", "+919878901234", "Head & Neck Surgical Oncology", "Sir H. N. Reliance Hospital"),
-    ]
-
-    inserted = 0
-    for name, phone, specialty, hospital in demo_list:
-        existing = await db.execute(
-            select(DoctorContact).where(
-                DoctorContact.user_id == current_user.id,
-                DoctorContact.phone_number == phone,
-            )
-        )
-        if not existing.scalar_one_or_none():
-            doc = DoctorContact(
-                user_id=current_user.id,
-                doctor_name=name,
-                phone_number=phone,
-                specialty=specialty,
-                hospital=hospital,
-                is_active=True,
-            )
-            db.add(doc)
-            inserted += 1
-
-    await db.commit()
-    return {"message": f"Successfully loaded {inserted} demo doctor contacts into directory."}

@@ -65,13 +65,17 @@ async def create_campaign(
     )
     recipients_count = doc_count_res.scalar() or 0
 
-    if payload.send_immediately or payload.schedule_type == "ONE_TIME":
+    if payload.send_immediately or payload.schedule_type == "ONE_TIME" or payload.frequency_type == "ONE_TIME":
         next_run = now_utc
     else:
         next_run = calculate_next_run_time(
             cron_schedule=payload.cron_schedule,
             scheduled_time=payload.scheduled_time,
             from_dt=now_utc,
+            frequency_type=payload.frequency_type,
+            interval_days=payload.interval_days,
+            scheduled_day_of_week=payload.scheduled_day_of_week,
+            scheduled_month_dates=payload.scheduled_month_dates,
         )
 
     campaign = BroadcastCampaign(
@@ -81,6 +85,14 @@ async def create_campaign(
         schedule_type=payload.schedule_type,
         cron_schedule=payload.cron_schedule,
         scheduled_time=payload.scheduled_time or "10:00",
+        batch_size=payload.batch_size or 20,
+        batch_interval_minutes=payload.batch_interval_minutes or 60,
+        message_delay_seconds=payload.message_delay_seconds or 30.0,
+        last_dispatched_doctor_index=0,
+        frequency_type=payload.frequency_type or "WEEKLY_DAY",
+        interval_days=payload.interval_days,
+        scheduled_day_of_week=payload.scheduled_day_of_week or "monday",
+        scheduled_month_dates=payload.scheduled_month_dates or "1, 16",
         next_run_at=next_run,
         status="ACTIVE",
         total_recipients=recipients_count,
@@ -119,8 +131,11 @@ async def blast_now(
         raise HTTPException(status_code=404, detail="Campaign not found.")
 
     blast_result = await execute_campaign_broadcast(campaign_id, db)
+    sent_cnt = blast_result.get('batch_sent', blast_result.get('sent', 0))
+    failed_cnt = blast_result.get('batch_failed', blast_result.get('failed', 0))
+    rem_cnt = blast_result.get('remaining', 0)
     blast_result["message"] = (
-        f"Broadcast blast completed: {blast_result.get('sent', 0)} sent, {blast_result.get('failed', 0)} failed."
+        f"Batch dispatch executed: {sent_cnt} sent, {failed_cnt} failed. ({rem_cnt} remaining in queue)"
     )
     return blast_result
 
@@ -148,7 +163,14 @@ async def toggle_campaign_status(
     else:
         camp.status = "ACTIVE"
         if not camp.next_run_at or camp.next_run_at < datetime.now(timezone.utc):
-            camp.next_run_at = calculate_next_run_time(camp.cron_schedule, camp.scheduled_time)
+            camp.next_run_at = calculate_next_run_time(
+                cron_schedule=camp.cron_schedule,
+                scheduled_time=camp.scheduled_time,
+                frequency_type=camp.frequency_type,
+                interval_days=camp.interval_days,
+                scheduled_day_of_week=camp.scheduled_day_of_week,
+                scheduled_month_dates=camp.scheduled_month_dates,
+            )
 
     await db.commit()
     await db.refresh(camp)

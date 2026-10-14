@@ -364,26 +364,142 @@ Clinical Outreach Desk, {centre_name}</textarea>
               </div>
             </div>
 
-            <!-- Scheduling Configuration -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
-                  Schedule Frequency
-                </label>
-                <select id="composer-frequency" onchange="onScheduleFrequencyChange(this.value)" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
-                  <option value="every_monday" selected>📅 Every Monday (10:00 AM)</option>
-                  <option value="dates_1_and_16">🗓️ 1st & 16th of Every Month</option>
-                  <option value="immediate">⚡ 1-Click Instant Blast (Send Immediately)</option>
-                  <option value="every_friday">🗓️ Every Friday (10:00 AM)</option>
-                  <option value="daily">☀️ Daily (10:00 AM)</option>
-                </select>
+            <!-- Dynamic Frequency & Recurrence Configuration -->
+            <div class="space-y-3 pt-1">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+                    Schedule Frequency
+                  </label>
+                  <select id="composer-frequency-type" onchange="onFrequencyTypeChange(this.value)" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                    <option value="WEEKLY_DAY" selected>📅 Weekly on Day (Default: Every Monday)</option>
+                    <option value="MONTHLY_DATES">🗓️ Specific Dates of Month (e.g. 1st & 16th)</option>
+                    <option value="EVERY_X_DAYS">🔁 Every X Days (e.g. Every 14 Days)</option>
+                    <option value="ONE_TIME">⚡ 1-Click Instant Blast (One-Time Blast)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+                    Scheduled Trigger Time (IST)
+                  </label>
+                  <input type="time" id="composer-time" value="10:00" onchange="updateThrottlingCalculation()" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                </div>
               </div>
 
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
-                  Scheduled Trigger Time (IST)
-                </label>
-                <input type="time" id="composer-time" value="10:00" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+              <!-- Conditional Sub-Options Based on Frequency Type -->
+              <div id="freq-sub-container" class="p-3.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs space-y-2">
+                <!-- Sub 1: Weekly Day Selector -->
+                <div id="freq-sub-weekly" class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="font-bold text-slate-700 dark:text-slate-200">Select Day of Week:</span>
+                  <select id="composer-weekday" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500">
+                    <option value="monday" selected>Every Monday (10:00 AM)</option>
+                    <option value="tuesday">Every Tuesday (10:00 AM)</option>
+                    <option value="wednesday">Every Wednesday (10:00 AM)</option>
+                    <option value="thursday">Every Thursday (10:00 AM)</option>
+                    <option value="friday">Every Friday (10:00 AM)</option>
+                    <option value="saturday">Every Saturday (10:00 AM)</option>
+                    <option value="sunday">Every Sunday (10:00 AM)</option>
+                  </select>
+                </div>
+
+                <!-- Sub 2: Monthly Specific Dates -->
+                <div id="freq-sub-monthly" class="hidden flex-wrap items-center justify-between gap-2">
+                  <span class="font-bold text-slate-700 dark:text-slate-200">Dates of Month (comma-separated):</span>
+                  <div class="flex items-center gap-2">
+                    <input type="text" id="composer-month-dates" value="1, 16" placeholder="e.g. 1, 16" class="w-32 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-mono text-xs">
+                    <span class="text-[11px] text-slate-400">e.g. 1, 16 or 5, 20</span>
+                  </div>
+                </div>
+
+                <!-- Sub 3: Interval in Days -->
+                <div id="freq-sub-interval" class="hidden flex-wrap items-center justify-between gap-2">
+                  <span class="font-bold text-slate-700 dark:text-slate-200">Repeat Interval in Days:</span>
+                  <div class="flex items-center gap-2">
+                    <span>Every</span>
+                    <input type="number" id="composer-interval-days" value="14" min="1" max="365" class="w-20 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-mono text-xs">
+                    <span>days</span>
+                  </div>
+                </div>
+
+                <!-- Sub 4: One-Time Info -->
+                <div id="freq-sub-onetime" class="hidden text-slate-500 dark:text-slate-400 text-[11px]">
+                  ⚡ Immediate blast will execute once across the active doctor queue with human throttling applied.
+                </div>
+              </div>
+            </div>
+
+            <!-- COLLAPSIBLE: ANTI-BAN SMART HUMAN THROTTLING (WhatsApp Safety Engine) -->
+            <div class="rounded-2xl border border-teal-500/30 dark:border-teal-500/20 bg-gradient-to-r from-teal-50/50 via-slate-50/50 to-emerald-50/50 dark:from-teal-950/20 dark:via-slate-900/40 dark:to-emerald-950/20 overflow-hidden transition-all">
+              <!-- Header / Toggle -->
+              <button type="button" onclick="toggleThrottlingPanel()" class="w-full p-3.5 flex items-center justify-between text-left hover:bg-teal-500/5 transition">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                    🛡️
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold text-slate-900 dark:text-white">Anti-Ban Smart Human Throttler</span>
+                      <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300">WhatsApp Safety Active</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Controls batch sizes, interval gaps, and human jitter delay to protect against WhatsApp spam flags</p>
+                  </div>
+                </div>
+                <div class="text-teal-600 dark:text-teal-400">
+                  <svg id="throttler-chevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+              </button>
+
+              <!-- Panel Body -->
+              <div id="throttler-body" class="p-4 pt-1 space-y-4 border-t border-teal-500/10">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <!-- Batch Size Input -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300">Batch Size (Doctors per Batch)</label>
+                      <span class="text-[10px] text-slate-400">Default: 20</span>
+                    </div>
+                    <input type="number" id="throttler-batch-size" value="20" min="1" max="500" oninput="updateThrottlingCalculation()" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-500">
+                    <p class="text-[10px] text-slate-400 mt-0.5">e.g. 10, 20, or 50 doctors per wave</p>
+                  </div>
+
+                  <!-- Batch Interval Input -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300">Pause Between Batches</label>
+                      <span class="text-[10px] text-slate-400">Default: 60 mins</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="throttler-batch-interval" value="60" min="1" max="1440" oninput="updateThrottlingCalculation()" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-500">
+                      <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">mins</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Cool-down pause between batch dispatches (e.g. 30, 60, 120 mins)</p>
+                  </div>
+                </div>
+
+                <!-- Per-Message Human Jitter / Delay Slider -->
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Per-Message Human Delay: <span id="throttler-delay-label" class="text-teal-600 dark:text-teal-400 font-bold font-mono">30s</span> <span class="text-[10px] text-slate-400 font-normal">(±15% natural jitter)</span>
+                    </label>
+                    <span class="text-[10px] text-slate-400">Range: 10s – 60s</span>
+                  </div>
+                  <input type="range" id="throttler-delay-slider" min="10" max="60" step="1" value="30" oninput="onDelaySliderChange(this.value)" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600">
+                  <div class="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
+                    <span>10s (Fast)</span>
+                    <span>30s (Recommended Safe)</span>
+                    <span>60s (Ultra-Safe)</span>
+                  </div>
+                </div>
+
+                <!-- Live Plain-English Throttling Summary Card -->
+                <div class="p-3.5 rounded-xl bg-teal-100/60 dark:bg-teal-950/60 border border-teal-200/80 dark:border-teal-800/80 flex items-start gap-2.5">
+                  <div class="text-teal-700 dark:text-teal-300 text-sm mt-0.5">⏱️</div>
+                  <div class="text-xs text-teal-950 dark:text-teal-100 leading-relaxed" id="throttling-live-calc-box">
+                    Calculating delivery schedule...
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -633,10 +749,10 @@ Clinical Outreach Desk, {centre_name}</textarea>
               <span id="filter-active-label">All Contacts</span>
             </button>
 
-            <!-- Seed Demo Oncologists -->
-            <button type="button" onclick="seedDemoDoctors()" id="btn-seed-doctors" class="px-3 py-2 rounded-xl text-xs font-semibold bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition flex items-center gap-1">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
-              <span>Seed 6 Oncologists</span>
+            <!-- Clear All Contacts Button -->
+            <button type="button" onclick="clearAllDoctors()" id="btn-clear-doctors" class="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition flex items-center gap-1.5 shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <span>Clear All Contacts</span>
             </button>
           </div>
         </div>
@@ -1114,6 +1230,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
         loadDoctors(),
         loadDispatchLogs()
       ]);
+      updateThrottlingCalculation();
     }
 
     // =========================================================================
@@ -1265,15 +1382,95 @@ Clinical Outreach Desk, {centre_name}</textarea>
       document.getElementById('preview-timestamp').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function onScheduleFrequencyChange(val) {
+    let throttlerPanelOpen = true;
+
+    function toggleThrottlingPanel() {
+      const body = document.getElementById('throttler-body');
+      const chevron = document.getElementById('throttler-chevron');
+      throttlerPanelOpen = !throttlerPanelOpen;
+      if (throttlerPanelOpen) {
+        body.classList.remove('hidden');
+        chevron.classList.remove('-rotate-90');
+      } else {
+        body.classList.add('hidden');
+        chevron.classList.add('-rotate-90');
+      }
+    }
+
+    function onFrequencyTypeChange(freq) {
+      const weekly = document.getElementById('freq-sub-weekly');
+      const monthly = document.getElementById('freq-sub-monthly');
+      const interval = document.getElementById('freq-sub-interval');
+      const onetime = document.getElementById('freq-sub-onetime');
+
+      if (weekly) weekly.classList.add('hidden');
+      if (monthly) monthly.classList.add('hidden');
+      if (interval) interval.classList.add('hidden');
+      if (onetime) onetime.classList.add('hidden');
+
       const blastBtn = document.getElementById('btn-blast-now');
       const saveBtn = document.getElementById('btn-save-campaign');
-      if (val === 'immediate') {
-        blastBtn.classList.remove('opacity-60');
-        saveBtn.innerText = 'Save Draft';
-      } else {
-        saveBtn.innerText = 'Save Schedule';
+
+      if (freq === 'WEEKLY_DAY') {
+        if (weekly) weekly.classList.remove('hidden');
+        if (saveBtn) saveBtn.innerText = 'Save Weekly Schedule';
+      } else if (freq === 'MONTHLY_DATES') {
+        if (monthly) monthly.classList.remove('hidden');
+        if (saveBtn) saveBtn.innerText = 'Save Monthly Schedule';
+      } else if (freq === 'EVERY_X_DAYS') {
+        if (interval) interval.classList.remove('hidden');
+        if (saveBtn) saveBtn.innerText = 'Save Recurring Schedule';
+      } else if (freq === 'ONE_TIME') {
+        if (onetime) onetime.classList.remove('hidden');
+        if (saveBtn) saveBtn.innerText = 'Save Draft Blast';
       }
+      updateThrottlingCalculation();
+    }
+
+    function onDelaySliderChange(val) {
+      const label = document.getElementById('throttler-delay-label');
+      if (label) label.innerText = `${val}s`;
+      updateThrottlingCalculation();
+    }
+
+    function updateThrottlingCalculation() {
+      const calcBox = document.getElementById('throttling-live-calc-box');
+      if (!calcBox) return;
+
+      const activeDocCount = allDoctors.length > 0
+        ? allDoctors.filter(d => d.is_active).length
+        : parseInt(document.getElementById('kpi-total-doctors')?.innerText || '0') || 0;
+
+      const batchSize = Math.max(1, parseInt(document.getElementById('throttler-batch-size')?.value) || 20);
+      const batchIntervalMins = Math.max(1, parseInt(document.getElementById('throttler-batch-interval')?.value) || 60);
+      const delaySec = Math.max(5, parseFloat(document.getElementById('throttler-delay-slider')?.value) || 30);
+
+      if (activeDocCount === 0) {
+        calcBox.innerHTML = `Directory has <strong>0 active doctors</strong>. Once doctors are added or imported, the safety engine will calculate execution waves.`;
+        return;
+      }
+
+      const totalBatches = Math.ceil(activeDocCount / batchSize);
+      const sendingSecondsPerBatch = Math.max(0, (Math.min(batchSize, activeDocCount) - 1)) * delaySec;
+      const sendingMinsPerBatch = (sendingSecondsPerBatch / 60).toFixed(1);
+
+      const totalSendingSeconds = Math.max(0, activeDocCount - 1) * delaySec;
+      const totalPauseMinutes = (totalBatches - 1) * batchIntervalMins;
+      const totalMinutes = Math.round((totalSendingSeconds / 60) + totalPauseMinutes);
+
+      let durationText = '';
+      if (totalMinutes < 60) {
+        durationText = `~${totalMinutes} minutes`;
+      } else {
+        const hours = (totalMinutes / 60).toFixed(1);
+        durationText = `~${hours} hours`;
+      }
+
+      calcBox.innerHTML = `
+        Broadcasting to <strong>${activeDocCount} active doctors</strong> in <strong>${totalBatches} wave${totalBatches > 1 ? 's' : ''}</strong> (batches of <strong>${batchSize} doctors</strong>).
+        Each message has a <strong>${delaySec}s human pause</strong> (~${sendingMinsPerBatch}m wave dispatch) followed by a <strong>${batchIntervalMins}m safety cool-down</strong>.
+        Full campaign will complete across <strong class="text-teal-700 dark:text-teal-300 font-bold">${durationText} safely</strong> with zero spam risk.
+      `;
     }
 
     // Gemini AI Polish Request
@@ -1323,8 +1520,14 @@ Clinical Outreach Desk, {centre_name}</textarea>
     async function submitCampaignForm(isImmediateBlast) {
       const title = document.getElementById('composer-title').value.trim();
       const message = document.getElementById('composer-message').value.trim();
-      const frequency = document.getElementById('composer-frequency').value;
+      const freqType = document.getElementById('composer-frequency-type').value;
       const scheduledTime = document.getElementById('composer-time').value || "10:00";
+      const scheduledWeekday = document.getElementById('composer-weekday')?.value || "monday";
+      const scheduledMonthDates = document.getElementById('composer-month-dates')?.value || "1, 16";
+      const intervalDays = parseInt(document.getElementById('composer-interval-days')?.value) || 14;
+      const batchSize = Math.max(1, parseInt(document.getElementById('throttler-batch-size')?.value) || 20);
+      const batchInterval = Math.max(1, parseInt(document.getElementById('throttler-batch-interval')?.value) || 60);
+      const messageDelay = Math.max(5, parseFloat(document.getElementById('throttler-delay-slider')?.value) || 30.0);
 
       if (!title || !message) {
         showToast('Please provide both campaign title and broadcast message.', 'error');
@@ -1333,14 +1536,32 @@ Clinical Outreach Desk, {centre_name}</textarea>
 
       const btn = isImmediateBlast ? document.getElementById('btn-blast-now') : document.getElementById('btn-save-campaign');
       btn.disabled = true;
-      btn.innerText = isImmediateBlast ? 'Dispatching...' : 'Saving...';
+      btn.innerText = isImmediateBlast ? 'Dispatching Batch...' : 'Saving...';
+
+      let legacyCron = 'every_monday';
+      if (freqType === 'WEEKLY_DAY') {
+        legacyCron = scheduledWeekday === 'friday' ? 'every_friday' : 'every_monday';
+      } else if (freqType === 'MONTHLY_DATES') {
+        legacyCron = 'dates_1_and_16';
+      } else if (freqType === 'EVERY_X_DAYS') {
+        legacyCron = 'daily';
+      } else if (freqType === 'ONE_TIME') {
+        legacyCron = 'immediate';
+      }
 
       const payload = {
         campaign_title: title,
         template_message: message,
-        schedule_type: (isImmediateBlast || frequency === 'immediate') ? 'ONE_TIME' : 'RECURRING',
-        cron_schedule: frequency,
+        schedule_type: (isImmediateBlast || freqType === 'ONE_TIME') ? 'ONE_TIME' : 'RECURRING',
+        frequency_type: isImmediateBlast ? 'ONE_TIME' : freqType,
+        cron_schedule: legacyCron,
         scheduled_time: scheduledTime,
+        scheduled_day_of_week: scheduledWeekday,
+        scheduled_month_dates: scheduledMonthDates,
+        interval_days: intervalDays,
+        batch_size: batchSize,
+        batch_interval_minutes: batchInterval,
+        message_delay_seconds: messageDelay,
         send_immediately: isImmediateBlast
       };
 
@@ -1355,7 +1576,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
         if (!res.ok) throw new Error(data.detail || 'Failed to create campaign');
 
         if (isImmediateBlast) {
-          showToast(`⚡ Broadcast blast dispatched! Sent: ${data.total_sent}, Failed: ${data.total_failed}`);
+          showToast(`⚡ Broadcast batch dispatched! Sent: ${data.total_sent}, Remaining: ${Math.max(0, data.total_recipients - data.total_sent)}`);
         } else {
           showToast('Broadcast campaign schedule saved successfully!');
         }
@@ -1405,18 +1626,38 @@ Clinical Outreach Desk, {centre_name}</textarea>
         const lastRun = c.last_run_at ? new Date(c.last_run_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
         const isActive = c.status === 'ACTIVE';
 
-        const freqLabels = {
-          'every_monday': 'Every Monday (10:00 AM)',
-          'dates_1_and_16': '1st & 16th of Every Month',
-          'every_friday': 'Every Friday (10:00 AM)',
-          'daily': 'Daily (10:00 AM)',
-          'immediate': 'One-Time Blast'
-        };
-        const freqText = freqLabels[c.cron_schedule] || c.cron_schedule;
+        let freqText = '';
+        if (c.frequency_type === 'WEEKLY_DAY') {
+          const dayName = (c.scheduled_day_of_week || 'Monday');
+          freqText = `Weekly: Every ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}`;
+        } else if (c.frequency_type === 'MONTHLY_DATES') {
+          freqText = `Monthly Dates: ${c.scheduled_month_dates || '1, 16'}`;
+        } else if (c.frequency_type === 'EVERY_X_DAYS') {
+          freqText = `Every ${c.interval_days || 1} Days`;
+        } else if (c.frequency_type === 'ONE_TIME' || c.schedule_type === 'ONE_TIME') {
+          freqText = 'One-Time Blast';
+        } else {
+          const freqLabels = {
+            'every_monday': 'Every Monday',
+            'dates_1_and_16': '1st & 16th of Month',
+            'every_friday': 'Every Friday',
+            'daily': 'Daily',
+            'immediate': 'One-Time Blast'
+          };
+          freqText = freqLabels[c.cron_schedule] || c.cron_schedule;
+        }
+
+        const isBatching = c.last_dispatched_doctor_index > 0 && c.status === 'ACTIVE';
+        const batchBadge = isBatching
+          ? `<div class="text-[10px] text-teal-600 font-mono font-bold mt-0.5">Wave at Doc #${c.last_dispatched_doctor_index}</div>`
+          : '';
 
         return `
           <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-            <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${escapeHtml(c.campaign_title)}</td>
+            <td class="py-3 px-4">
+              <div class="font-bold text-slate-900 dark:text-white">${escapeHtml(c.campaign_title)}</div>
+              <div class="text-[10px] text-slate-400 font-mono">Batch: ${c.batch_size || 20} docs | ${c.message_delay_seconds || 30}s jitter</div>
+            </td>
             <td class="py-3 px-4">
               <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                 ${freqText} at ${escapeHtml(c.scheduled_time || '10:00')}
@@ -1427,6 +1668,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
             <td class="py-3 px-4">
               <span class="font-bold text-teal-600 dark:text-teal-400">${c.total_sent} sent</span>
               ${c.total_failed > 0 ? `<span class="text-rose-500 font-medium ml-1">(${c.total_failed} failed)</span>` : ''}
+              ${batchBadge}
             </td>
             <td class="py-3 px-4">
               <button onclick="toggleCampaignStatus('${c.id}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -1640,11 +1882,8 @@ Clinical Outreach Desk, {centre_name}</textarea>
               <div class="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 flex items-center justify-center">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
               </div>
-              <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">No Doctor Contacts Found</h4>
-              <p class="text-[11px] text-slate-400">Import a CSV file or seed 6 demo oncologists to populate the directory immediately.</p>
-              <button onclick="seedDemoDoctors()" class="mt-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition">
-                Seed 6 Oncologists
-              </button>
+              <h4 class="text-xs font-bold text-slate-800 dark:text-slate-100">No Doctor Contacts in Directory</h4>
+              <p class="text-[11px] text-slate-400">Your directory contains only verified real contacts. Use the Bulk Import above to upload an Excel/CSV file, or quickly add a doctor using the form.</p>
             </div>
           </td></tr>
         `;
@@ -1697,6 +1936,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
         if (!res.ok) throw new Error('Failed to toggle status');
         await loadDoctors();
         await loadKpiStats();
+        updateThrottlingCalculation();
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -1710,23 +1950,28 @@ Clinical Outreach Desk, {centre_name}</textarea>
         showToast('Doctor contact removed');
         await loadDoctors();
         await loadKpiStats();
+        updateThrottlingCalculation();
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
-    async function seedDemoDoctors() {
-      const btn = document.getElementById('btn-seed-doctors');
+    async function clearAllDoctors() {
+      if (!confirm('Are you sure you want to remove ALL doctor contacts from your directory? This will permanently delete all contacts and cannot be undone.')) {
+        return;
+      }
+      const btn = document.getElementById('btn-clear-doctors');
       if (btn) btn.disabled = true;
-      showToast('Seeding 6 oncology contacts...', 'info');
+      showToast('Clearing all doctor contacts from directory...', 'info');
 
       try {
-        const res = await fetch('/api/doctors/seed-demo', { method: 'POST' });
+        const res = await fetch('/api/doctors/clear-all', { method: 'DELETE' });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Seeding failed');
-        showToast(data.message || 'Seeded 6 demo oncology specialists!');
+        if (!res.ok) throw new Error(data.detail || 'Failed to clear contacts');
+        showToast(data.message || 'All doctor contacts successfully removed.');
         await loadDoctors();
         await loadKpiStats();
+        updateThrottlingCalculation();
       } catch (err) {
         showToast(err.message, 'error');
       } finally {
