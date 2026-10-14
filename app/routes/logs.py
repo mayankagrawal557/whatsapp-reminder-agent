@@ -8,6 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import BroadcastCampaign, BroadcastLog, DoctorContact, User, get_db
@@ -27,7 +28,11 @@ async def get_broadcast_logs(
     """
     List past broadcast dispatches with recipient doctor name, phone, status, and error details.
     """
-    stmt = select(BroadcastLog).where(BroadcastLog.user_id == current_user.id)
+    stmt = (
+        select(BroadcastLog)
+        .options(selectinload(BroadcastLog.campaign))
+        .where(BroadcastLog.user_id == current_user.id)
+    )
 
     if status and status.upper() in ("SENT", "FAILED"):
         stmt = stmt.where(BroadcastLog.status == status.upper())

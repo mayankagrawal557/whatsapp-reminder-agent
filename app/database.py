@@ -230,6 +230,13 @@ class BroadcastLog(Base):
 
     campaign = relationship("BroadcastCampaign", back_populates="logs")
 
+    @property
+    def campaign_title(self) -> Optional[str]:
+        if self.campaign:
+            return self.campaign.campaign_title
+        return None
+
+
 
 # Resolve database URL and ensure parent directory exists for SQLite
 def _resolve_and_prepare_db_url(url: str) -> str:

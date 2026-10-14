@@ -113,6 +113,71 @@ async def async_send_greenapi_message(phone: str, message: str, id_instance: str
         return res.json()
 
 
+def check_greenapi_whatsapp(phone: str, id_instance: str, token: str) -> dict:
+    """
+    Dedicated check if recipient WhatsApp account exists using Green-API checkWhatsapp endpoint:
+    POST https://{host}/waInstance{idInstance}/checkWhatsapp/{token} with {"phoneNumber": clean_phone}
+    """
+    clean = re.sub(r"\D", "", phone)
+    if len(clean) == 10 and settings.DEFAULT_COUNTRY_CODE:
+        code = re.sub(r"\D", "", settings.DEFAULT_COUNTRY_CODE)
+        clean = f"{code}{clean}"
+    host = get_greenapi_host(id_instance)
+    url = f"https://{host}/waInstance{id_instance}/checkWhatsapp/{token}"
+    phone_val = int(clean) if clean.isdigit() else clean
+    payload = {"phoneNumber": phone_val}
+
+    with httpx.Client(timeout=15.0) as client:
+        try:
+            res = client.post(url, json=payload)
+            if res.status_code == 200:
+                return res.json()
+        except Exception as e:
+            logger.warning(f"[GREEN-API] sync checkWhatsapp POST error: {e}")
+
+        try:
+            res = client.get(url, params={"phoneNumber": str(phone_val)})
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
+
+    return {"existsWhatsapp": True}
+
+
+async def async_check_whatsapp_exists(phone: str, id_instance: str, token: str) -> dict:
+    """
+    Asynchronous check if recipient WhatsApp account exists using Green-API checkWhatsapp endpoint:
+    POST https://{host}/waInstance{idInstance}/checkWhatsapp/{token} with {"phoneNumber": clean_phone}
+    Returns e.g. {"existsWhatsapp": true/false, "chatId": "...", ...}
+    """
+    clean = re.sub(r"\D", "", phone)
+    if len(clean) == 10 and settings.DEFAULT_COUNTRY_CODE:
+        code = re.sub(r"\D", "", settings.DEFAULT_COUNTRY_CODE)
+        clean = f"{code}{clean}"
+    host = get_greenapi_host(id_instance)
+    url = f"https://{host}/waInstance{id_instance}/checkWhatsapp/{token}"
+    phone_val = int(clean) if clean.isdigit() else clean
+    payload = {"phoneNumber": phone_val}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            res = await client.post(url, json=payload)
+            if res.status_code == 200:
+                return res.json()
+        except Exception as e:
+            logger.warning(f"[GREEN-API] async checkWhatsapp POST failed: {e}")
+
+        try:
+            res = await client.get(url, params={"phoneNumber": str(phone_val)})
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
+
+    return {"existsWhatsapp": True}
+
+
 class GreenApiWhatsAppGateway(BaseWhatsAppGateway):
     """
     Green-API WhatsApp Gateway (Real WhatsApp Cloud Delivery via Linked Phone).
@@ -134,6 +199,18 @@ class GreenApiWhatsAppGateway(BaseWhatsAppGateway):
             digits = f"{code}{digits}"
         return digits
 
+    async def check_recipient_whatsapp(
+        self,
+        to_phone: str,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> dict:
+        """Verify if a recipient phone is registered on WhatsApp."""
+        id_inst = (phone_number_id or self.default_id_instance or "").strip()
+        tok = (access_token or self.default_token or "").strip()
+        clean = self.clean_recipient_phone(to_phone)
+        return await async_check_whatsapp_exists(clean, id_inst, tok)
+
     async def send_text_message(
         self,
         to_phone: str,
@@ -153,6 +230,20 @@ class GreenApiWhatsAppGateway(BaseWhatsAppGateway):
         if not clean or len(clean) < 7:
             err = f"Invalid recipient phone number format: '{to_phone}'"
             return WhatsAppSendResult(success=False, error_message=err)
+
+        # Pre-flight check: Verify if recipient WhatsApp account exists using Green-API checkWhatsapp
+        try:
+            check_data = await async_check_whatsapp_exists(clean, id_inst, tok)
+            if check_data.get("existsWhatsapp") is False:
+                warn_msg = "Phone number is not registered on WhatsApp."
+                logger.warning(f"[GREEN-API] Pre-flight check failed: Recipient {clean} is not registered on WhatsApp.")
+                return WhatsAppSendResult(
+                    success=False,
+                    error_message=warn_msg,
+                    raw_response=check_data,
+                )
+        except Exception as exc:
+            logger.warning(f"[GREEN-API] checkWhatsapp check exception for {clean}: {exc}. Continuing with send attempt.")
 
         try:
             data = await async_send_greenapi_message(

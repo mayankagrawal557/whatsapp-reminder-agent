@@ -290,6 +290,33 @@ async def direct_whatsapp_test(
         access_token=access_token,
     )
 
+    # Record in BroadcastLog for audit visibility
+    target_user_id = current_user.id if current_user else None
+    if not target_user_id:
+        from app.database import User
+        user_res = await db.execute(select(User).limit(1))
+        first_user = user_res.scalar_one_or_none()
+        if first_user:
+            target_user_id = first_user.id
+
+    if target_user_id:
+        from app.database import BroadcastLog
+        from datetime import datetime, timezone
+        log_entry = BroadcastLog(
+            user_id=target_user_id,
+            campaign_id=None,
+            doctor_id=None,
+            doctor_name="Direct Verification Test",
+            phone_number=payload.to,
+            message_snippet=payload.message[:160] + ("..." if len(payload.message) > 160 else ""),
+            sent_at=datetime.now(timezone.utc),
+            status="SENT" if result.success else "FAILED",
+            error_message=result.error_message if not result.success else None,
+            whatsapp_message_id=result.message_id,
+        )
+        db.add(log_entry)
+        await db.commit()
+
     return {
         "success": result.success,
         "recipient": payload.to,

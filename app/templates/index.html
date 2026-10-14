@@ -1184,6 +1184,74 @@ Clinical Outreach Desk, {centre_name}</textarea>
     </div>
   </div>
 
+  <!-- DISPATCH FAILURE AUDIT MODAL -->
+  <div id="log-error-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm hidden" onclick="if(event.target===this)closeLogErrorModal()">
+    <div class="stripe-card w-full max-w-lg rounded-2xl border border-rose-500/40 dark:border-rose-500/30 p-6 shadow-2xl space-y-4 ring-1 ring-rose-500/20">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-sm">
+            ⚠️
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">WhatsApp Dispatch Failure Inspection</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Diagnostic output from WhatsApp Gateway & Green-API</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeLogErrorModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Recipient Context Grid -->
+      <div class="grid grid-cols-2 gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/80 text-xs">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Recipient Doctor</span>
+          <span id="modal-err-doctor" class="font-bold text-slate-800 dark:text-slate-200">Dr. Rajesh Sharma</span>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Phone Number</span>
+          <span id="modal-err-phone" class="font-mono text-slate-800 dark:text-slate-200">+91 98765 43210</span>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Outreach Campaign</span>
+          <span id="modal-err-campaign" class="text-slate-700 dark:text-slate-300">Monday Slots Update</span>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Dispatched Timestamp</span>
+          <span id="modal-err-time" class="font-mono text-slate-700 dark:text-slate-300">Today, 10:00 AM</span>
+        </div>
+      </div>
+
+      <!-- Specific Cause Warning Banner (Conditional) -->
+      <div id="modal-err-banner" class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+        <span class="text-amber-600 dark:text-amber-400 font-bold text-base mt-[-2px]">⚠️</span>
+        <div id="modal-err-banner-text" class="leading-relaxed">
+          <strong>Phone number is not registered on WhatsApp:</strong> The recipient account cannot receive WhatsApp dispatches.
+        </div>
+      </div>
+
+      <!-- Raw Underlying Error Snippet -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Raw Gateway Diagnostic Output</label>
+          <button type="button" onclick="copyLogErrorText()" id="btn-copy-error-text" class="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline">
+            Copy Error Details
+          </button>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap break-all border border-slate-800 select-all" id="modal-err-raw">
+          Error details...
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+        <button type="button" onclick="closeLogErrorModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
 
@@ -1905,7 +1973,16 @@ Clinical Outreach Desk, {centre_name}</textarea>
               </div>
             </td>
             <td class="py-3 px-4 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-              ${escapeHtml(doc.phone_number)}
+              <div class="flex items-center gap-1.5">
+                <span>${escapeHtml(doc.phone_number)}</span>
+                <button type="button" onclick="checkDoctorWhatsapp('${escapeHtml(doc.phone_number)}', this)"
+                        class="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        title="Check if number is registered on WhatsApp via Green-API">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+                  </svg>
+                </button>
+              </div>
             </td>
             <td class="py-3 px-4 text-slate-600 dark:text-slate-300">
               ${escapeHtml(doc.specialty || 'General Oncology')}
@@ -1979,9 +2056,45 @@ Clinical Outreach Desk, {centre_name}</textarea>
       }
     }
 
+    async function checkDoctorWhatsapp(phone, btnElement) {
+      if (!phone) return;
+      const originalHtml = btnElement ? btnElement.innerHTML : '';
+      if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.innerHTML = `<span class="inline-block w-3.5 h-3.5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></span>`;
+      }
+      showToast(`Verifying WhatsApp registration for ${phone}...`, 'info');
+
+      try {
+        const res = await fetch(`/api/doctors/check-whatsapp?phone_number=${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to check WhatsApp');
+
+        if (data.existsWhatsapp) {
+          if (btnElement) {
+            btnElement.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-bold text-xs" title="Verified active WhatsApp account">✓</span>`;
+          }
+          showToast(`✓ ${phone} is registered on WhatsApp!`, 'success');
+        } else {
+          if (btnElement) {
+            btnElement.innerHTML = `<span class="text-rose-500 font-bold text-xs" title="Phone number is not registered on WhatsApp">✕</span>`;
+          }
+          showToast(`⚠️ ${phone} is not registered on WhatsApp.`, 'error');
+        }
+      } catch (err) {
+        if (btnElement) btnElement.innerHTML = originalHtml;
+        showToast(`Verification check error: ${err.message}`, 'error');
+      } finally {
+        if (btnElement) btnElement.disabled = false;
+      }
+    }
+
     // =========================================================================
     // TAB 3: DISPATCH LOGS, SETTINGS & UPTIME MONITOR
     // =========================================================================
+    let allLogsById = {};
+    let currentLogErrorDetails = '';
+
     async function loadDispatchLogs() {
       const statusFilter = document.getElementById('log-status-filter')?.value || '';
       let url = '/api/logs?limit=100';
@@ -2010,9 +2123,36 @@ Clinical Outreach Desk, {centre_name}</textarea>
         return;
       }
 
+      allLogsById = {};
       tbody.innerHTML = logs.map(l => {
+        allLogsById[l.id] = l;
         const sentTime = l.sent_at ? new Date(l.sent_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Unknown';
         const isSent = l.status === 'SENT';
+
+        const statusBadge = isSent
+          ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 inline-flex items-center gap-1 shadow-xs">
+               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+               <span>SENT</span>
+             </span>`
+          : `<div class="relative inline-block group">
+               <button type="button" onclick="openLogErrorById('${l.id}')"
+                       class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 hover:bg-rose-200 dark:hover:bg-rose-900 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                       title="Click to inspect underlying diagnostic error">
+                 <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                 <span>FAILED</span>
+                 <svg class="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+               </button>
+               <!-- Hover Tooltip -->
+               <div class="hidden group-hover:block absolute z-30 bottom-full left-0 mb-1.5 w-72 p-2.5 bg-slate-900 text-slate-100 text-[11px] rounded-xl shadow-2xl border border-slate-700 pointer-events-none transition-all duration-150">
+                 <div class="font-bold text-rose-400 mb-0.5 flex items-center gap-1">
+                   <span>⚠️ Dispatch Failure:</span>
+                 </div>
+                 <div class="text-slate-300 line-clamp-3 font-mono text-[10px] break-words">
+                   ${escapeHtml(l.error_message || 'Underlying dispatch failure. Click badge for diagnostic details.')}
+                 </div>
+                 <div class="mt-1 text-[9px] text-teal-400 font-sans font-semibold">Click badge to inspect error &rarr;</div>
+               </div>
+             </div>`;
 
         return `
           <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
@@ -2021,11 +2161,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
             <td class="py-3 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300">${escapeHtml(l.phone_number)}</td>
             <td class="py-3 px-4 text-slate-600 dark:text-slate-300 text-xs">${escapeHtml(l.campaign_title || 'Direct Broadcast')}</td>
             <td class="py-3 px-4">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                isSent ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-              }">
-                ${l.status}
-              </span>
+              ${statusBadge}
             </td>
             <td class="py-3 px-4 text-slate-500 dark:text-slate-400 truncate max-w-xs text-[11px]">
               ${escapeHtml(l.message_snippet || '')}
@@ -2034,6 +2170,81 @@ Clinical Outreach Desk, {centre_name}</textarea>
         `;
       }).join('');
     }
+
+    function openLogErrorById(logId) {
+      const log = allLogsById[logId];
+      if (!log) return;
+      const sentTime = log.sent_at ? new Date(log.sent_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Unknown';
+      showLogErrorModal(
+        log.doctor_name || 'Referring Doctor',
+        log.phone_number || '',
+        sentTime,
+        log.error_message || 'No additional error details recorded.',
+        log.campaign_title || 'Direct Broadcast'
+      );
+    }
+
+    function showLogErrorModal(doctorName, phone, sentTime, errorMsg, campaignTitle) {
+      const modal = document.getElementById('log-error-modal');
+      if (!modal) return;
+
+      document.getElementById('modal-err-doctor').innerText = doctorName || 'Referring Doctor';
+      document.getElementById('modal-err-phone').innerText = phone || 'N/A';
+      document.getElementById('modal-err-campaign').innerText = campaignTitle || 'Direct Broadcast';
+      document.getElementById('modal-err-time').innerText = sentTime || 'N/A';
+
+      const rawEl = document.getElementById('modal-err-raw');
+      rawEl.innerText = errorMsg || 'No error details recorded.';
+      currentLogErrorDetails = `Recipient: ${doctorName} (${phone})\nCampaign: ${campaignTitle}\nDispatched: ${sentTime}\nDiagnostic Error:\n${errorMsg}`;
+
+      // Check if error is unregistered WhatsApp account
+      const banner = document.getElementById('modal-err-banner');
+      const bannerText = document.getElementById('modal-err-banner-text');
+      const isUnregistered = errorMsg && (
+        errorMsg.toLowerCase().includes('not registered') ||
+        errorMsg.toLowerCase().includes('not on whatsapp') ||
+        errorMsg.toLowerCase().includes('existswhatsapp": false') ||
+        errorMsg.toLowerCase().includes('existswhatsapp":false')
+      );
+
+      if (isUnregistered) {
+        banner.classList.remove('hidden');
+        bannerText.innerHTML = `<strong>Phone number is not registered on WhatsApp:</strong> The recipient number (<span class="font-mono font-bold">${escapeHtml(phone)}</span>) does not have an active WhatsApp account. Green-API pre-flight check prevented delivery.`;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      const copyBtn = document.getElementById('btn-copy-error-text');
+      if (copyBtn) copyBtn.innerText = 'Copy Error Details';
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeLogErrorModal() {
+      const modal = document.getElementById('log-error-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+    }
+
+    function copyLogErrorText() {
+      const rawText = currentLogErrorDetails || document.getElementById('modal-err-raw')?.innerText || '';
+      navigator.clipboard.writeText(rawText).then(() => {
+        const copyBtn = document.getElementById('btn-copy-error-text');
+        if (copyBtn) copyBtn.innerText = '✓ Copied!';
+        showToast('Diagnostic details copied to clipboard');
+        setTimeout(() => {
+          if (copyBtn) copyBtn.innerText = 'Copy Error Details';
+        }, 2000);
+      }).catch(() => {
+        showToast('Failed to copy to clipboard', 'error');
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeLogErrorModal();
+      }
+    });
 
     // Load & Save Settings
     async function loadSettings() {

@@ -8,7 +8,7 @@ import logging
 from typing import List, Optional
 import csv
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -271,6 +271,49 @@ async def clear_all_doctors(
         "success": True,
         "message": f"Successfully deleted all {count} doctor contacts from directory.",
         "deleted": count,
+    }
+
+
+@router.post("/check-whatsapp", summary="Check if phone number is registered on WhatsApp via Green-API")
+@router.get("/check-whatsapp", summary="Check if phone number is registered on WhatsApp via Green-API (GET)")
+async def check_whatsapp_registration(
+    phone_number: Optional[str] = Query(None, description="Phone number to check (e.g. +919754119551 or 9754119551)"),
+    payload: Optional[dict] = Body(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check if a recipient phone number has an active WhatsApp account using Green-API's checkWhatsapp endpoint.
+    Returns existsWhatsapp, warning message if not registered.
+    """
+    from app.config import settings
+    from app.database import get_user_settings_dict
+    from app.services.whatsapp_service import async_check_whatsapp_exists
+
+    target = phone_number
+    if not target and payload:
+        target = payload.get("phone_number") or payload.get("phone") or payload.get("phoneNumber")
+
+    if not target:
+        raise HTTPException(status_code=400, detail="phone_number is required via query param or JSON payload.")
+
+    tenant_settings = await get_user_settings_dict(db, current_user.id)
+    id_inst = tenant_settings.get("greenapi_id_instance") or settings.GREENAPI_ID_INSTANCE or "710722761375"
+    tok = tenant_settings.get("greenapi_token") or settings.GREENAPI_TOKEN or "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4"
+
+    clean_phone = normalize_phone_number(target)
+    check_result = await async_check_whatsapp_exists(clean_phone, id_inst, tok)
+    exists = check_result.get("existsWhatsapp", False)
+
+    warning = "Phone number is not registered on WhatsApp." if not exists else None
+    msg = "Active WhatsApp account verified." if exists else "Phone number is not registered on WhatsApp."
+
+    return {
+        "existsWhatsapp": exists,
+        "phone_number": clean_phone,
+        "warning": warning,
+        "message": msg,
+        "raw_response": check_result,
     }
 
 

@@ -357,6 +357,7 @@ class BroadcastLogResponse(BaseModel):
     id: str
     user_id: str
     campaign_id: Optional[str] = None
+    campaign_title: Optional[str] = None
     doctor_id: Optional[str] = None
     doctor_name: str
     phone_number: str
