@@ -2197,7 +2197,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
       rawEl.innerText = errorMsg || 'No error details recorded.';
       currentLogErrorDetails = `Recipient: ${doctorName} (${phone})\nCampaign: ${campaignTitle}\nDispatched: ${sentTime}\nDiagnostic Error:\n${errorMsg}`;
 
-      // Check if error is unregistered WhatsApp account
+      // Check if error is quota exceeded or unregistered WhatsApp account
       const banner = document.getElementById('modal-err-banner');
       const bannerText = document.getElementById('modal-err-banner-text');
       const isUnregistered = errorMsg && (
@@ -2206,8 +2206,18 @@ Clinical Outreach Desk, {centre_name}</textarea>
         errorMsg.toLowerCase().includes('existswhatsapp": false') ||
         errorMsg.toLowerCase().includes('existswhatsapp":false')
       );
+      const isQuotaExceeded = errorMsg && (
+        errorMsg.includes('466') ||
+        errorMsg.toLowerCase().includes('quota') ||
+        errorMsg.toLowerCase().includes('correspondents')
+      );
 
-      if (isUnregistered) {
+      if (isQuotaExceeded) {
+        banner.className = 'p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800/70 text-xs text-rose-900 dark:text-rose-200 flex items-start gap-2.5';
+        banner.classList.remove('hidden');
+        bannerText.innerHTML = `<strong>Green-API Free Developer Plan Limit Reached (3 Unique Contacts Max):</strong> Your Green-API instance is on the free <em>Developer</em> tariff, which restricts message dispatches to a maximum of 3 unique recipient contacts per month (already consumed by Dr. Utkarsh and initial test numbers). Dr. Aayush is contact #4.<br><br><strong>To Fix:</strong> In your <a href="https://console.green-api.com" target="_blank" class="underline font-bold text-rose-700 dark:text-rose-300 hover:text-rose-600">GREEN-API Console</a> (open in your browser tab), change the instance tariff from 'Developer' to <strong>Business</strong> (or Basic) for unlimited contacts, or pair your WhatsApp via the WhatsApp Web QR Gateway.`;
+      } else if (isUnregistered) {
+        banner.className = 'p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5';
         banner.classList.remove('hidden');
         bannerText.innerHTML = `<strong>Phone number is not registered on WhatsApp:</strong> The recipient number (<span class="font-mono font-bold">${escapeHtml(phone)}</span>) does not have an active WhatsApp account. Green-API pre-flight check prevented delivery.`;
       } else {

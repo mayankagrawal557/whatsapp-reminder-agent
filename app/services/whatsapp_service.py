@@ -267,7 +267,13 @@ class GreenApiWhatsAppGateway(BaseWhatsAppGateway):
 
         except httpx.HTTPStatusError as hse:
             err_body = hse.response.text
-            err = f"Green-API HTTP {hse.response.status_code} Error: {err_body}"
+            if hse.response.status_code == 466 or "CORRESPONDENTS_QUOTE_EXCEEDED" in err_body or "quota has been exceeded" in err_body:
+                err = (
+                    f"Green-API Quota Exceeded (HTTP 466): Your Green-API instance is on the free Developer tariff which allows a maximum of 3 unique recipient contacts per month. "
+                    f"Dr. Aayush ({clean}) is contact #4 and exceeds the 3-contact quota limit. To message Dr. Aayush and unlimited doctors, upgrade the tariff from 'Developer' to 'Business' / 'Basic' in your Green-API Console (https://console.green-api.com), or switch to WhatsApp Web QR Gateway."
+                )
+            else:
+                err = f"Green-API HTTP {hse.response.status_code} Error: {err_body}"
             logger.error(f"[GREEN-API] {err}")
             return WhatsAppSendResult(
                 success=False,
