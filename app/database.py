@@ -42,15 +42,17 @@ class User(Base):
     business_name = Column(String(128), nullable=False)
     email = Column(String(128), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    business_type = Column(String(64), nullable=False, default="Clinic / Service")
+    business_type = Column(String(64), nullable=False, default="PET-CT Diagnostic Imaging Centre")
     phone = Column(String(32), nullable=True)
     logo_url = Column(String(512), nullable=True)
-    brand_color = Column(String(32), nullable=True, default="#10b981")
+    brand_color = Column(String(32), nullable=True, default="#0d9488")
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     reminders = relationship("Reminder", back_populates="user", cascade="all, delete-orphan")
     settings = relationship("AppSetting", back_populates="user", cascade="all, delete-orphan")
+    doctors = relationship("DoctorContact", back_populates="user", cascade="all, delete-orphan")
+    campaigns = relationship("BroadcastCampaign", back_populates="user", cascade="all, delete-orphan")
 
 
 class AppSetting(Base):
@@ -144,6 +146,78 @@ class MessageAuditLog(Base):
     status = Column(String(32), nullable=True)
     payload = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class DoctorContact(Base):
+    """
+    Referring Doctor Directory Contact.
+    Stores medical oncologists, surgeons, and physicians for Arovida PET-CT broadcasts.
+    """
+    __tablename__ = "doctor_contacts"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_name = Column(String(128), nullable=False, index=True)
+    phone_number = Column(String(32), nullable=False, index=True)
+    specialty = Column(String(128), nullable=True)  # e.g., Medical Oncologist, Surgical Oncologist
+    hospital = Column(String(128), nullable=True)   # e.g., Apex Hospital, Apollo, Max Healthcare
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    user = relationship("User", back_populates="doctors")
+
+
+class BroadcastCampaign(Base):
+    """
+    Doctor Broadcast Campaign model.
+    Supports 1-click blasts or recurring schedules (every Monday, 1st & 16th, etc.).
+    """
+    __tablename__ = "broadcast_campaigns"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_title = Column(String(255), nullable=False)
+    template_message = Column(Text, nullable=False)  # dynamic tags: {doctor_name}, {specialty}, {hospital}, {centre_name}
+    schedule_type = Column(String(32), default="ONE_TIME", nullable=False)  # "ONE_TIME" or "RECURRING"
+    cron_schedule = Column(String(64), nullable=True, default="immediate")  # "immediate", "every_monday", "dates_1_and_16", "every_friday", "daily"
+    scheduled_time = Column(String(16), default="10:00", nullable=False)
+    next_run_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(32), default="ACTIVE", index=True, nullable=False)  # "DRAFT", "ACTIVE", "PAUSED", "COMPLETED"
+    total_recipients = Column(Integer, default=0, nullable=False)
+    total_sent = Column(Integer, default=0, nullable=False)
+    total_failed = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    user = relationship("User", back_populates="campaigns")
+    logs = relationship("BroadcastLog", back_populates="campaign", cascade="all, delete-orphan")
+
+
+class BroadcastLog(Base):
+    """
+    Detailed dispatch log entry per recipient doctor for campaign execution audits.
+    """
+    __tablename__ = "broadcast_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    user_id = Column(String(64), index=True, nullable=False)
+    campaign_id = Column(String(36), ForeignKey("broadcast_campaigns.id", ondelete="CASCADE"), nullable=True, index=True)
+    doctor_id = Column(String(36), index=True, nullable=True)
+    doctor_name = Column(String(128), nullable=False)
+    phone_number = Column(String(32), nullable=False)
+    message_snippet = Column(Text, nullable=True)
+    sent_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    status = Column(String(32), default="SENT", nullable=False)  # "SENT" or "FAILED"
+    error_message = Column(Text, nullable=True)
+    whatsapp_message_id = Column(String(128), nullable=True)
+
+    campaign = relationship("BroadcastCampaign", back_populates="logs")
 
 
 # Resolve database URL and ensure parent directory exists for SQLite
@@ -299,9 +373,9 @@ async def init_db() -> None:
         if "logo_url" not in user_cols and len(user_cols) > 0:
             await conn.execute(text("ALTER TABLE users ADD COLUMN logo_url VARCHAR(512);"))
         if "brand_color" not in user_cols and len(user_cols) > 0:
-            await conn.execute(text("ALTER TABLE users ADD COLUMN brand_color VARCHAR(32) DEFAULT '#10b981';"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN brand_color VARCHAR(32) DEFAULT '#0d9488';"))
 
-    # Seed default clinic user tenant
+    # Seed default clinic user tenant & sample doctor contacts
     async with AsyncSessionLocal() as session:
         # Avoid circular import by hashing locally with bcrypt
         import bcrypt
@@ -311,7 +385,6 @@ async def init_db() -> None:
         demo_user = result.scalar_one_or_none()
 
         if not demo_user:
-            # Check by email as well
             email_stmt = select(User).where(User.email == "demo@clinic.com")
             email_res = await session.execute(email_stmt)
             demo_user = email_res.scalar_one_or_none()
@@ -320,27 +393,119 @@ async def init_db() -> None:
             hashed_pw = bcrypt.hashpw("demo123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             demo_user = User(
                 id=demo_user_id,
-                business_name="Arovida Clinic",
+                business_name="Arovida PET-CT Centre",
                 email="demo@clinic.com",
                 password_hash=hashed_pw,
-                business_type="Dental Clinic",
+                business_type="PET-CT Diagnostic Imaging Centre",
+                brand_color="#0d9488",
                 is_active=True,
             )
             session.add(demo_user)
             await session.commit()
-        elif "Apex" in (demo_user.business_name or ""):
-            demo_user.business_name = "Arovida Clinic"
+        else:
+            demo_user.business_name = "Arovida PET-CT Centre"
+            demo_user.business_type = "PET-CT Diagnostic Imaging Centre"
+            demo_user.brand_color = "#0d9488"
             await session.commit()
 
-        # Update any legacy Apex users, settings, or orphan reminders
+        # Update any legacy clinic names across all tables
         await session.execute(
-            text("UPDATE users SET business_name = 'Arovida Clinic' WHERE business_name LIKE '%Apex%';")
+            text("UPDATE users SET business_name = 'Arovida PET-CT Centre' WHERE business_name LIKE '%Apex%' OR business_name = 'Arovida Clinic';")
         )
         await session.execute(
-            text("UPDATE app_settings SET value = 'Arovida Clinic' WHERE key = 'business_name' AND value LIKE '%Apex%';")
-        )
-        await session.execute(
-            text("UPDATE reminders SET user_id = :uid WHERE user_id IS NULL;"),
-            {"uid": demo_user.id},
+            text("UPDATE app_settings SET value = 'Arovida PET-CT Centre' WHERE key = 'business_name' AND (value LIKE '%Apex%' OR value = 'Arovida Clinic');")
         )
         await session.commit()
+
+        # Seed sample referring doctors if table is empty
+        doc_count_res = await session.execute(select(DoctorContact).where(DoctorContact.user_id == demo_user.id))
+        existing_docs = doc_count_res.scalars().all()
+        if not existing_docs:
+            sample_doctors = [
+                DoctorContact(
+                    id=str(uuid.uuid4()),
+                    user_id=demo_user.id,
+                    doctor_name="Dr. Rajesh Sharma",
+                    phone_number="+919876543210",
+                    specialty="Medical Oncology",
+                    hospital="Tata Memorial Hospital",
+                    is_active=True,
+                ),
+                DoctorContact(
+                    id=str(uuid.uuid4()),
+                    user_id=demo_user.id,
+                    doctor_name="Dr. Ananya Iyer",
+                    phone_number="+919812345678",
+                    specialty="Surgical Oncology",
+                    hospital="Apollo Cancer Centre",
+                    is_active=True,
+                ),
+                DoctorContact(
+                    id=str(uuid.uuid4()),
+                    user_id=demo_user.id,
+                    doctor_name="Dr. Vikram Malhotra",
+                    phone_number="+919988776655",
+                    specialty="Pulmonology & Chest Medicine",
+                    hospital="Fortis Memorial Research Institute",
+                    is_active=True,
+                ),
+                DoctorContact(
+                    id=str(uuid.uuid4()),
+                    user_id=demo_user.id,
+                    doctor_name="Dr. Sneha Patel",
+                    phone_number="+919765432109",
+                    specialty="Radiation Oncology",
+                    hospital="Max Super Speciality Hospital",
+                    is_active=True,
+                ),
+                DoctorContact(
+                    id=str(uuid.uuid4()),
+                    user_id=demo_user.id,
+                    doctor_name="Dr. Amit Verma",
+                    phone_number="+919823456789",
+                    specialty="Internal Medicine & Oncology",
+                    hospital="City Care Hospital",
+                    is_active=True,
+                ),
+                DoctorContact(
+                    id=str(uuid.uuid4()),
+                    user_id=demo_user.id,
+                    doctor_name="Dr. Meera Nambiar",
+                    phone_number="+919834567890",
+                    specialty="Hemato-Oncology",
+                    hospital="AIIMS Oncology Unit",
+                    is_active=True,
+                ),
+            ]
+            session.add_all(sample_doctors)
+            await session.commit()
+
+        # Seed sample Monday campaign if none exists
+        camp_res = await session.execute(select(BroadcastCampaign).where(BroadcastCampaign.user_id == demo_user.id))
+        existing_camps = camp_res.scalars().all()
+        if not existing_camps:
+            sample_campaign = BroadcastCampaign(
+                id=str(uuid.uuid4()),
+                user_id=demo_user.id,
+                campaign_title="Monday PET-CT Slots Update",
+                template_message=(
+                    "Respected {doctor_name},\n\n"
+                    "Greetings from {centre_name}.\n\n"
+                    "This is our weekly update on prioritized PET-CT scanning slots available for your patients at {hospital}:\n\n"
+                    "• Same-Day Whole Body 18F-FDG PET-CT with guaranteed 6-Hour reporting turnaround.\n"
+                    "• High-resolution 68Ga-PSMA PET-CT (Prostate) & 68Ga-DOTATATE (Neuroendocrine) appointments open.\n"
+                    "• Patient transport assistance & insurance cashless pre-authorization available.\n\n"
+                    "For direct priority bookings, please contact our Referral Desk at +91 98765 00000.\n\n"
+                    "Warm regards,\n"
+                    "{centre_name}"
+                ),
+                schedule_type="RECURRING",
+                cron_schedule="every_monday",
+                scheduled_time="10:00",
+                status="ACTIVE",
+                total_recipients=6,
+                total_sent=0,
+                total_failed=0,
+            )
+            session.add(sample_campaign)
+            await session.commit()

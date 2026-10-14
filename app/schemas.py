@@ -242,3 +242,132 @@ class HealthResponse(BaseModel):
     gateway_type: str
     gemini_configured: bool
     stats: Dict[str, int]
+
+
+# ==============================================================================
+# Doctor Directory Schemas
+# ==============================================================================
+class DoctorCreate(BaseModel):
+    doctor_name: str = Field(..., min_length=2, max_length=128, description="Doctor full name with title, e.g. Dr. Rajesh Sharma")
+    phone_number: str = Field(..., description="WhatsApp phone number (10-digit auto +91 or E.164)")
+    specialty: Optional[str] = Field(None, max_length=128, description="Specialty, e.g. Medical Oncologist, Surgical Oncologist")
+    hospital: Optional[str] = Field(None, max_length=128, description="Affiliated Hospital or Clinic, e.g. Tata Memorial Hospital")
+    is_active: bool = Field(True, description="Active status for broadcast dispatches")
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        return normalize_phone_number(v)
+
+
+class DoctorUpdate(BaseModel):
+    doctor_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    specialty: Optional[str] = None
+    hospital: Optional[str] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            return normalize_phone_number(v)
+        return v
+
+
+class DoctorResponse(BaseModel):
+    id: str
+    user_id: str
+    doctor_name: str
+    phone_number: str
+    specialty: Optional[str] = None
+    hospital: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DoctorBulkUploadResult(BaseModel):
+    total_processed: int
+    inserted: int
+    skipped_duplicates: int
+    errors: List[str] = []
+
+
+# ==============================================================================
+# Broadcast Campaign Schemas
+# ==============================================================================
+class CampaignCreate(BaseModel):
+    campaign_title: str = Field(..., min_length=3, max_length=255, description="Campaign title, e.g. Monday PET-CT Slots Update")
+    template_message: str = Field(..., min_length=10, description="Message body with tags: {doctor_name}, {specialty}, {hospital}, {centre_name}")
+    schedule_type: Literal["ONE_TIME", "RECURRING"] = Field("ONE_TIME", description="ONE_TIME blast or RECURRING schedule")
+    cron_schedule: Optional[str] = Field("every_monday", description="every_monday, dates_1_and_16, every_friday, daily, immediate")
+    scheduled_time: str = Field("10:00", description="Dispatch time of day (HH:MM in 24hr format, e.g. 10:00)")
+    send_immediately: bool = Field(False, description="Trigger blast immediately upon saving")
+
+
+class CampaignResponse(BaseModel):
+    id: str
+    user_id: str
+    campaign_title: str
+    template_message: str
+    schedule_type: str
+    cron_schedule: Optional[str] = None
+    scheduled_time: str = "10:00"
+    next_run_at: Optional[datetime] = None
+    last_run_at: Optional[datetime] = None
+    status: str
+    total_recipients: int = 0
+    total_sent: int = 0
+    total_failed: int = 0
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ==============================================================================
+# Broadcast Logs & Analytics Schemas
+# ==============================================================================
+class BroadcastLogResponse(BaseModel):
+    id: str
+    user_id: str
+    campaign_id: Optional[str] = None
+    doctor_id: Optional[str] = None
+    doctor_name: str
+    phone_number: str
+    message_snippet: Optional[str] = None
+    sent_at: datetime
+    status: str
+    error_message: Optional[str] = None
+    whatsapp_message_id: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BroadcastStatsResponse(BaseModel):
+    total_doctors: int = 0
+    active_doctors: int = 0
+    total_campaigns: int = 0
+    active_campaigns: int = 0
+    total_broadcasts_sent: int = 0
+    total_broadcasts_failed: int = 0
+    delivery_rate_pct: float = 100.0
+
+
+# ==============================================================================
+# Gemini AI Polish Schema
+# ==============================================================================
+class GeminiPolishRequest(BaseModel):
+    template_text: str = Field(..., description="Draft message to polish")
+    tone: Literal["professional", "slots_update", "clinical_case", "festive"] = Field("professional", description="Desired tone")
+    centre_name: Optional[str] = Field("Arovida PET-CT Centre", description="Centre brand name")
+
+
+class GeminiPolishResponse(BaseModel):
+    polished_text: str
+    tone: str
+

@@ -8,8 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Application Info
-    APP_NAME: str = "WhatsApp AI Reminder Automation"
-    APP_VERSION: str = "2.0.0"
+    APP_NAME: str = "Arovida PET-CT Centre — Doctor Engagement & Broadcast Engine"
+    APP_VERSION: str = "3.0.0"
     ENVIRONMENT: str = "production"
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
@@ -43,17 +43,17 @@ class Settings(BaseSettings):
     BRIDGE_API_KEY: Optional[str] = None
 
     # Anti-Ban & Scheduler Controls
-    SCHEDULER_INTERVAL_SECONDS: int = 60
-    RATE_LIMIT_MIN_JITTER_SECONDS: float = 3.0
-    RATE_LIMIT_MAX_JITTER_SECONDS: float = 8.0
-    MAX_BATCH_SIZE: int = 20
+    SCHEDULER_INTERVAL_SECONDS: int = 30
+    RATE_LIMIT_MIN_JITTER_SECONDS: float = 0.2
+    RATE_LIMIT_MAX_JITTER_SECONDS: float = 0.5
+    MAX_BATCH_SIZE: int = 500
     DEFAULT_REMINDER_LEAD_HOURS: int = 24
     DEFAULT_COUNTRY_CODE: str = "+91"
 
     # Multi-tenant Defaults
     DEFAULT_CLIENT_ID: str = "default_tenant"
-    DEFAULT_BUSINESS_NAME: str = "Appointments Desk"
-    DEFAULT_BUSINESS_TYPE: str = "Clinic / Service"
+    DEFAULT_BUSINESS_NAME: str = "Arovida PET-CT Centre"
+    DEFAULT_BUSINESS_TYPE: str = "PET-CT Diagnostic Imaging Centre"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -207,6 +207,122 @@ class GeminiService:
                 f"Reply 1 to Confirm or 2 to Reschedule."
             )
 
+    async def polish_doctor_broadcast(
+        self,
+        template_text: str,
+        tone: str = "professional",
+        centre_name: str = "Arovida PET-CT Centre",
+        custom_api_key: Optional[str] = None,
+        model_name: Optional[str] = None,
+    ) -> str:
+        """
+        Polish doctor broadcast text for medical oncology and clinical outreach.
+        Preserves dynamic tags: {doctor_name}, {specialty}, {hospital}, {centre_name}.
+        """
+        active_key = custom_api_key or self.default_api_key
+        active_model = model_name or self.default_model
+
+        tone_instructions = {
+            "professional": (
+                "You are an executive medical liaison for Arovida PET-CT Centre writing to senior oncologists and physicians. "
+                "Refine the draft message into a concise, highly professional, collegial WhatsApp broadcast. "
+                "Highlight diagnostic precision, 6-hour reporting turnaround, and state-of-the-art PET-CT technology. "
+                "CRITICAL: Keep and preserve dynamic tags {doctor_name}, {specialty}, {hospital}, and {centre_name} exactly intact without altering brackets."
+            ),
+            "slots_update": (
+                "You are an executive medical liaison for Arovida PET-CT Centre writing to referring doctors. "
+                "Highlight priority same-day PET-CT scanning slots, fast patient intake, ambulance support, and 6-hour report turnaround. "
+                "Keep the tone respectful, urgent yet professional. "
+                "CRITICAL: Keep and preserve dynamic tags {doctor_name}, {specialty}, {hospital}, and {centre_name} exactly intact."
+            ),
+            "clinical_case": (
+                "You are a clinical radiologist at Arovida PET-CT Centre sharing an educational PET-CT case study or clinical milestone with referring physicians. "
+                "The tone must be academic, evidence-based, and respectful. "
+                "CRITICAL: Keep and preserve dynamic tags {doctor_name}, {specialty}, {hospital}, and {centre_name} exactly intact."
+            ),
+            "festive": (
+                "You are the Medical Director of Arovida PET-CT Centre extending warm collegial holiday or new year greetings to esteemed referring doctors. "
+                "The tone must be warm, respectful, acknowledging their tireless dedication to cancer patient care. "
+                "CRITICAL: Keep and preserve dynamic tags {doctor_name}, {specialty}, {hospital}, and {centre_name} exactly intact."
+            ),
+        }
+
+        system_instruction = tone_instructions.get(tone, tone_instructions["professional"])
+
+        if active_key and active_key.strip():
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent?key={active_key.strip()}"
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    f"{system_instruction}\n\n"
+                                    f"Original draft:\n\"\"\"{template_text}\"\"\"\n\n"
+                                    "Output ONLY the polished WhatsApp message text ready to be sent. Do not include markdown code fences or quotation marks around the output."
+                                )
+                            }
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.4,
+                    "maxOutputTokens": 600,
+                }
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            text_out = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                            if text_out and len(text_out.strip()) > 15:
+                                return text_out.strip()
+            except Exception as e:
+                logger.warning(f"Gemini polish API failed: {e}. Falling back to refined template.")
+
+        # Fallback polish when Gemini key not available
+        clean_text = template_text.strip()
+        if tone == "slots_update":
+            return (
+                f"Respected {{doctor_name}},\n\n"
+                f"Greetings from {{centre_name}}.\n\n"
+                f"This is an urgent slot update for your oncology patients at {{hospital}}:\n\n"
+                f"• Priority Whole-Body 18F-FDG PET-CT slots available with verified 6-hour report delivery.\n"
+                f"• Dedicated 68Ga-PSMA & 68Ga-DOTATATE scans open for specialized staging.\n"
+                f"• Seamless cashless insurance pre-authorization & dedicated patient transport.\n\n"
+                f"To reserve immediate slots for critical cases, please contact our Physician Desk at +91 98765 00000.\n\n"
+                f"Warm regards,\n{{centre_name}}"
+            )
+        elif tone == "clinical_case":
+            return (
+                f"Dear {{doctor_name}},\n\n"
+                f"Greetings from {{centre_name}}.\n\n"
+                f"We are pleased to share our latest Clinical Radiology Insight regarding optimized metabolic response evaluation in lymphoma and lung carcinoma using high-resolution PET-CT.\n\n"
+                f"Our clinical team is always available to review complex correlative imaging with you.\n\n"
+                f"Referral & Discussion Desk: +91 98765 00000\n\n"
+                f"Sincerely,\n{{centre_name}}"
+            )
+        elif tone == "festive":
+            return (
+                f"Respected {{doctor_name}},\n\n"
+                f"Warm greetings and best wishes from the entire team at {{centre_name}}!\n\n"
+                f"We deeply appreciate your continued partnership and dedication to compassionate patient care. May this season bring peace, health, and success to you and your loved ones.\n\n"
+                f"With highest regards,\n{{centre_name}}"
+            )
+        else:
+            return (
+                f"Respected {{doctor_name}},\n\n"
+                f"Greetings from {{centre_name}}.\n\n"
+                f"{clean_text}\n\n"
+                f"For any priority scheduling assistance or reporting inquiries, please reach our dedicated Doctor Desk at +91 98765 00000.\n\n"
+                f"Warm regards,\n{{centre_name}}"
+            )
+
     async def test_connection(self, api_key: str, model: str = "gemini-1.5-flash") -> dict:
         try:
             msg = await self.generate_reminder(
@@ -225,3 +341,4 @@ class GeminiService:
 
 
 gemini_service = GeminiService()
+

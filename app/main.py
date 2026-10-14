@@ -17,8 +17,16 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import Reminder, get_all_settings_dict, get_db, init_db
-from app.routes import auth, clients, reminders, settings as settings_route, webhooks
+from app.database import (
+    BroadcastCampaign,
+    BroadcastLog,
+    DoctorContact,
+    Reminder,
+    get_all_settings_dict,
+    get_db,
+    init_db,
+)
+from app.routes import auth, campaigns, clients, doctors, logs, reminders, settings as settings_route, webhooks
 from app.schemas import HealthResponse
 from app.scheduler import is_scheduler_running, start_scheduler, stop_scheduler
 
@@ -83,10 +91,13 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Mount Route Handlers
 app.include_router(auth.router)
-app.include_router(reminders.router)
+app.include_router(doctors.router)
+app.include_router(campaigns.router)
+app.include_router(logs.router)
 app.include_router(settings_route.router)
-app.include_router(clients.router)
 app.include_router(webhooks.router)
+app.include_router(reminders.router)
+app.include_router(clients.router)
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Dashboard"], summary="Serve Web Dashboard")
@@ -138,13 +149,29 @@ async def full_health_check(db: AsyncSession = Depends(get_db)):
     stats = {"pending": 0, "sent": 0, "failed": 0, "processing": 0, "total": 0}
 
     try:
-        stmt = select(Reminder.status, func.count(Reminder.id)).group_by(Reminder.status)
-        res = await db.execute(stmt)
-        for row_status, count in res.all():
-            key = row_status.lower()
-            if key in stats:
-                stats[key] = count
-            stats["total"] += count
+        # Check doctors count
+        doc_stmt = select(DoctorContact.is_active, func.count(DoctorContact.id)).group_by(DoctorContact.is_active)
+        res = await db.execute(doc_stmt)
+        stats["active_doctors"] = 0
+        stats["inactive_doctors"] = 0
+        stats["total_doctors"] = 0
+        for is_act, count in res.all():
+            if is_act:
+                stats["active_doctors"] = count
+            else:
+                stats["inactive_doctors"] = count
+            stats["total_doctors"] += count
+
+        # Check campaign count
+        camp_stmt = select(func.count(BroadcastCampaign.id))
+        stats["total_campaigns"] = (await db.execute(camp_stmt)).scalar() or 0
+
+        # Check logs count
+        logs_stmt = select(BroadcastLog.status, func.count(BroadcastLog.id)).group_by(BroadcastLog.status)
+        for log_status, count in (await db.execute(logs_stmt)).all():
+            key = f"broadcast_{log_status.lower()}"
+            stats[key] = count
+
         db_connected = True
     except Exception as exc:
         logger.error(f"Database health check failed: {exc}")
