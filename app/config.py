@@ -28,9 +28,14 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-1.5-flash"
     GEMINI_TIMEOUT_SECONDS: float = 12.0
 
-    # WhatsApp Gateway Selection: "meta", "web" (QR-based), "bridge", or "mock" (dry-run)
-    WHATSAPP_GATEWAY_TYPE: str = "meta"
+    # WhatsApp Gateway Selection: "greenapi", "meta", "web", or "mock"
+    WHATSAPP_GATEWAY_TYPE: str = "greenapi"
     WA_BRIDGE_URL: str = "http://127.0.0.1:3001"
+
+    # Green-API Credentials (Real WhatsApp Delivery via Linked Phone)
+    GREENAPI_ID_INSTANCE: str = "710722761375"
+    GREENAPI_TOKEN: str = "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4"
+    GREENAPI_HOST: Optional[str] = None
 
     # Meta Cloud API Credentials (Official Graph API)
     META_PHONE_NUMBER_ID: Optional[str] = None

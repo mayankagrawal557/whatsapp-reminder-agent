@@ -204,31 +204,36 @@ class AIPreviewResponse(BaseModel):
 
 
 class SettingsPayload(BaseModel):
+    greenapi_id_instance: Optional[str] = None
+    greenapi_token: Optional[str] = None
     meta_phone_number_id: Optional[str] = None
     meta_whatsapp_token: Optional[str] = None
     gemini_api_key: Optional[str] = None
     gemini_model: Optional[str] = "gemini-1.5-flash"
-    business_name: Optional[str] = "Appointments Desk"
-    business_type: Optional[str] = "Clinic / Service"
+    business_name: Optional[str] = "Arovida PET-CT Centre"
+    business_type: Optional[str] = "PET-CT Diagnostic Imaging Centre"
     default_tone: Optional[str] = "friendly"
-    whatsapp_gateway_type: Optional[str] = "meta"
+    whatsapp_gateway_type: Optional[str] = "greenapi"
     default_country_code: Optional[str] = "+91"
     logo_url: Optional[str] = None
     brand_color: Optional[str] = None
 
 
 class SettingsResponse(BaseModel):
+    greenapi_id_instance: str = "710722761375"
+    greenapi_token_masked: str = ""
     meta_phone_number_id: str = ""
     meta_whatsapp_token_masked: str = ""
     gemini_api_key_masked: str = ""
     gemini_model: str = "gemini-1.5-flash"
-    business_name: str = "Appointments Desk"
-    business_type: str = "Clinic / Service"
+    business_name: str = "Arovida PET-CT Centre"
+    business_type: str = "PET-CT Diagnostic Imaging Centre"
     default_tone: str = "friendly"
-    whatsapp_gateway_type: str = "meta"
+    whatsapp_gateway_type: str = "greenapi"
     default_country_code: str = "+91"
     logo_url: Optional[str] = None
-    brand_color: Optional[str] = "#10b981"
+    brand_color: Optional[str] = "#0d9488"
+    is_greenapi_configured: bool = True
     is_meta_configured: bool = False
     is_gemini_configured: bool = False
 

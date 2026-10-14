@@ -720,15 +720,62 @@ Clinical Outreach Desk, {centre_name}</textarea>
       <!-- SETTINGS & CREDENTIALS GRID -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
+        <!-- GREEN-API GATEWAY (REAL WHATSAPP DELIVERY VIA LINKED PHONE) -->
+        <div class="stripe-card p-6 rounded-2xl border border-emerald-500/40 dark:border-emerald-500/40 shadow-card space-y-4 ring-1 ring-emerald-500/30 bg-gradient-to-b from-emerald-50/20 to-transparent dark:from-emerald-950/20">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>🟢 Green-API Gateway (Real Delivery)</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 uppercase tracking-wider">Active</span>
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Dispatches real messages to doctors and syncs to your personal/centre WhatsApp chat history</p>
+            </div>
+            <span id="greenapi-status-badge" class="text-[10px] px-2.5 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Connected (+91 81077 91917)</span>
+            </span>
+          </div>
+
+          <div class="space-y-3.5">
+            <!-- Connected Info Banner -->
+            <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2.5">
+              <span class="text-emerald-600 dark:text-emerald-400 text-base font-bold">✓</span>
+              <div class="text-xs text-emerald-900 dark:text-emerald-200">
+                <strong>Instance Authorized & Linked:</strong> Dispatches directly via <strong>+91 81077 91917</strong> with 100% cloud delivery reliability on Render.
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">idInstance</label>
+                <input type="text" id="cfg-greenapi-id" value="710722761375" placeholder="710722761375" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">apiTokenInstance</label>
+                <input type="password" id="cfg-greenapi-token" value="d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4" placeholder="d8dd5c..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono">
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <span id="greenapi-test-feedback" class="text-xs text-slate-500 font-medium">Ready to dispatch</span>
+              <button type="button" onclick="testGreenApiCredentials()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Test Green-API Connection</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- WHATSAPP WEB QR-BASED GATEWAY (NO META TOKEN REQUIRED) -->
         <div class="stripe-card p-6 rounded-2xl border border-teal-500/30 dark:border-teal-500/30 shadow-card space-y-4 ring-1 ring-teal-500/20">
           <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
             <div>
               <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>📲 WhatsApp Web QR Gateway</span>
-                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 uppercase tracking-wider">No Token Required</span>
+                <span>📲 Local Baileys QR Gateway</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 uppercase tracking-wider">Local Mode</span>
               </h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Link personal or centre WhatsApp via QR scan to dispatch broadcasts directly</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Local Node.js WebSocket bridge for camera QR pairing</p>
             </div>
             <span id="wa-web-status-badge" class="text-[10px] px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
               Disconnected
@@ -816,10 +863,11 @@ Clinical Outreach Desk, {centre_name}</textarea>
 
           <div class="space-y-3.5">
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Gateway Mode</label>
-              <select id="cfg-gateway-type" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
-                <option value="whatsapp_web_qr">📲 WhatsApp Web QR Gateway (Linked Personal / Clinic WhatsApp — No Meta Token)</option>
-                <option value="meta_cloud_api">Meta WhatsApp Cloud API (Production — Requires Token & Phone ID)</option>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Active Broadcast Gateway</label>
+              <select id="cfg-gateway-type" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white">
+                <option value="greenapi" selected>🟢 Green-API Gateway (Real Delivery via +91 81077 91917 — Recommended)</option>
+                <option value="whatsapp_web_qr">📲 Local Baileys WebSocket QR Gateway</option>
+                <option value="meta_cloud_api">Meta WhatsApp Cloud API (Graph API)</option>
                 <option value="mock">Dry-Run / Simulated Mock Mode (Development)</option>
               </select>
             </div>
@@ -1749,10 +1797,17 @@ Clinical Outreach Desk, {centre_name}</textarea>
         if (!res.ok) return;
         const cfg = await res.json();
 
-        let gwType = (cfg.whatsapp_gateway_type || 'whatsapp_web_qr').toLowerCase();
+        let gwType = (cfg.whatsapp_gateway_type || 'greenapi').toLowerCase();
         if (gwType === 'web' || gwType === 'baileys' || gwType === 'qr') gwType = 'whatsapp_web_qr';
         if (gwType === 'meta') gwType = 'meta_cloud_api';
+        if (gwType === 'green_api' || gwType === 'green') gwType = 'greenapi';
         document.getElementById('cfg-gateway-type').value = gwType;
+        if (document.getElementById('cfg-greenapi-id')) {
+          document.getElementById('cfg-greenapi-id').value = cfg.greenapi_id_instance || '710722761375';
+        }
+        if (document.getElementById('cfg-greenapi-token')) {
+          document.getElementById('cfg-greenapi-token').value = cfg.greenapi_token_masked || '';
+        }
         document.getElementById('cfg-phone-id').value = cfg.meta_phone_number_id || '';
         document.getElementById('cfg-whatsapp-token').value = cfg.meta_whatsapp_token_masked || '';
         document.getElementById('cfg-gemini-key').value = cfg.gemini_api_key_masked || '';
@@ -1803,6 +1858,8 @@ Clinical Outreach Desk, {centre_name}</textarea>
     async function saveAppSettings() {
       const payload = {
         whatsapp_gateway_type: document.getElementById('cfg-gateway-type').value,
+        greenapi_id_instance: document.getElementById('cfg-greenapi-id')?.value?.trim() || '710722761375',
+        greenapi_token: document.getElementById('cfg-greenapi-token')?.value?.trim() || '',
         meta_phone_number_id: document.getElementById('cfg-phone-id').value,
         meta_whatsapp_token: document.getElementById('cfg-whatsapp-token').value,
         gemini_api_key: document.getElementById('cfg-gemini-key').value,
@@ -1829,6 +1886,32 @@ Clinical Outreach Desk, {centre_name}</textarea>
       }
     }
 
+    async function testGreenApiCredentials() {
+      const feedback = document.getElementById('greenapi-test-feedback');
+      feedback.innerText = 'Verifying Green-API socket authorization...';
+      try {
+        const res = await fetch('/api/settings/test-greenapi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            greenapi_id_instance: document.getElementById('cfg-greenapi-id').value,
+            greenapi_token: document.getElementById('cfg-greenapi-token').value,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          feedback.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-bold">✓ ${data.message}</span>`;
+          showToast(data.message, 'success');
+        } else {
+          feedback.innerHTML = `<span class="text-rose-500 font-bold">✗ ${data.message}</span>`;
+          showToast(data.message, 'error');
+        }
+      } catch (err) {
+        feedback.innerHTML = `<span class="text-rose-500 font-bold">✗ ${err.message}</span>`;
+        showToast(err.message, 'error');
+      }
+    }
+
     async function testWhatsAppCredentials() {
       const feedback = document.getElementById('wa-test-feedback');
       feedback.innerText = 'Testing connection...';
@@ -1838,6 +1921,8 @@ Clinical Outreach Desk, {centre_name}</textarea>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             whatsapp_gateway_type: document.getElementById('cfg-gateway-type').value,
+            greenapi_id_instance: document.getElementById('cfg-greenapi-id')?.value || '',
+            greenapi_token: document.getElementById('cfg-greenapi-token')?.value || '',
             meta_phone_number_id: document.getElementById('cfg-phone-id').value,
             meta_whatsapp_token: document.getElementById('cfg-whatsapp-token').value,
           }),

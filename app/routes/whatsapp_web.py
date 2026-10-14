@@ -265,15 +265,24 @@ async def direct_whatsapp_test(
     from app.services.whatsapp_service import get_whatsapp_gateway
     from app.database import get_user_settings_dict
 
+    gw_type = (payload.gateway_type or "greenapi").strip().lower()
     phone_id = settings.META_PHONE_NUMBER_ID or ""
     access_token = settings.META_WHATSAPP_TOKEN or ""
 
+    if gw_type in ("greenapi", "green_api", "green"):
+        phone_id = settings.GREENAPI_ID_INSTANCE or "710722761375"
+        access_token = settings.GREENAPI_TOKEN or "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4"
+
     if current_user:
         tenant_settings = await get_user_settings_dict(db, current_user.id)
-        phone_id = tenant_settings.get("meta_phone_number_id") or phone_id
-        access_token = tenant_settings.get("meta_whatsapp_token") or access_token
+        if gw_type in ("greenapi", "green_api", "green"):
+            phone_id = tenant_settings.get("greenapi_id_instance") or phone_id
+            access_token = tenant_settings.get("greenapi_token") or access_token
+        else:
+            phone_id = tenant_settings.get("meta_phone_number_id") or phone_id
+            access_token = tenant_settings.get("meta_whatsapp_token") or access_token
 
-    gw = get_whatsapp_gateway(payload.gateway_type)
+    gw = get_whatsapp_gateway(payload.gateway_type or "greenapi")
     result = await gw.send_text_message(
         to_phone=payload.to,
         message=payload.message,

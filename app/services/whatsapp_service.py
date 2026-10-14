@@ -61,6 +61,203 @@ class BaseWhatsAppGateway(abc.ABC):
         pass
 
 
+def get_greenapi_host(id_instance: str) -> str:
+    """Resolve Green-API host matching instance prefix (e.g. 7107 -> 7107.api.greenapi.com)."""
+    if settings.GREENAPI_HOST:
+        return settings.GREENAPI_HOST.strip().replace("https://", "").replace("http://", "").rstrip("/")
+    inst = str(id_instance or "").strip()
+    prefix = inst[:4] if len(inst) >= 4 else "7107"
+    return f"{prefix}.api.greenapi.com"
+
+
+def send_greenapi_message(phone: str, message: str, id_instance: str, token: str) -> dict:
+    """
+    Dedicated synchronous Green-API message delivery function.
+    Cleans phone, formats chatId as {digits}@c.us, and sends text message.
+    """
+    clean = re.sub(r"\D", "", phone)
+    if len(clean) == 10 and settings.DEFAULT_COUNTRY_CODE:
+        code = re.sub(r"\D", "", settings.DEFAULT_COUNTRY_CODE)
+        clean = f"{code}{clean}"
+    chat_id = f"{clean}@c.us"
+    host = get_greenapi_host(id_instance)
+    url = f"https://{host}/waInstance{id_instance}/sendMessage/{token}"
+    payload = {
+        "chatId": chat_id,
+        "message": message,
+    }
+    with httpx.Client(timeout=20.0) as client:
+        res = client.post(url, json=payload)
+        res.raise_for_status()
+        return res.json()
+
+
+async def async_send_greenapi_message(phone: str, message: str, id_instance: str, token: str) -> dict:
+    """
+    Dedicated asynchronous Green-API message delivery function for async pipelines.
+    """
+    clean = re.sub(r"\D", "", phone)
+    if len(clean) == 10 and settings.DEFAULT_COUNTRY_CODE:
+        code = re.sub(r"\D", "", settings.DEFAULT_COUNTRY_CODE)
+        clean = f"{code}{clean}"
+    chat_id = f"{clean}@c.us"
+    host = get_greenapi_host(id_instance)
+    url = f"https://{host}/waInstance{id_instance}/sendMessage/{token}"
+    payload = {
+        "chatId": chat_id,
+        "message": message,
+    }
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        res = await client.post(url, json=payload)
+        res.raise_for_status()
+        return res.json()
+
+
+class GreenApiWhatsAppGateway(BaseWhatsAppGateway):
+    """
+    Green-API WhatsApp Gateway (Real WhatsApp Cloud Delivery via Linked Phone).
+    Delivers messages directly to recipients' phones and syncs with sender's WhatsApp chat history.
+    """
+
+    def __init__(
+        self,
+        id_instance: Optional[str] = None,
+        token: Optional[str] = None,
+    ):
+        self.default_id_instance = (id_instance or settings.GREENAPI_ID_INSTANCE or "710722761375").strip()
+        self.default_token = (token or settings.GREENAPI_TOKEN or "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4").strip()
+
+    def clean_recipient_phone(self, phone: str) -> str:
+        digits = re.sub(r"\D", "", phone)
+        if len(digits) == 10 and settings.DEFAULT_COUNTRY_CODE:
+            code = re.sub(r"\D", "", settings.DEFAULT_COUNTRY_CODE)
+            digits = f"{code}{digits}"
+        return digits
+
+    async def send_text_message(
+        self,
+        to_phone: str,
+        message: str,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        id_inst = (phone_number_id or self.default_id_instance or "").strip()
+        tok = (access_token or self.default_token or "").strip()
+
+        if not id_inst or not tok:
+            err = "Missing Green-API credentials (idInstance or apiTokenInstance)."
+            logger.error(f"[GREEN-API] {err}")
+            return WhatsAppSendResult(success=False, error_message=err)
+
+        clean = self.clean_recipient_phone(to_phone)
+        if not clean or len(clean) < 7:
+            err = f"Invalid recipient phone number format: '{to_phone}'"
+            return WhatsAppSendResult(success=False, error_message=err)
+
+        try:
+            data = await async_send_greenapi_message(
+                phone=clean,
+                message=message,
+                id_instance=id_inst,
+                token=tok,
+            )
+            id_message = data.get("idMessage")
+            if id_message:
+                logger.info(f"[GREEN-API] Real message delivered to {clean} (idMessage: {id_message})")
+                return WhatsAppSendResult(
+                    success=True,
+                    message_id=id_message,
+                    raw_response=data,
+                )
+            else:
+                err = f"Green-API response did not return idMessage: {data}"
+                logger.error(f"[GREEN-API] {err}")
+                return WhatsAppSendResult(success=False, error_message=err, raw_response=data)
+
+        except httpx.HTTPStatusError as hse:
+            err_body = hse.response.text
+            err = f"Green-API HTTP {hse.response.status_code} Error: {err_body}"
+            logger.error(f"[GREEN-API] {err}")
+            return WhatsAppSendResult(
+                success=False,
+                error_message=err,
+                raw_response={"status_code": hse.response.status_code, "body": err_body},
+            )
+        except Exception as exc:
+            err = f"Green-API delivery error: {str(exc)}"
+            logger.error(f"[GREEN-API] {err}")
+            return WhatsAppSendResult(success=False, error_message=err)
+
+    async def send_interactive_buttons(
+        self,
+        to_phone: str,
+        body_text: str,
+        buttons_list: Optional[list] = None,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        buttons = buttons_list or [
+            {"type": "reply", "reply": {"id": "btn_confirm", "title": "Confirm"}},
+            {"type": "reply", "reply": {"id": "btn_reschedule", "title": "Reschedule"}},
+        ]
+        btn_prompts = []
+        for idx, btn in enumerate(buttons, 1):
+            title = btn.get("reply", {}).get("title") or f"Option {idx}"
+            btn_prompts.append(f"{idx}. {title}")
+
+        formatted = f"{body_text}\n\n" + "\n".join(btn_prompts)
+        return await self.send_text_message(to_phone, formatted, phone_number_id, access_token)
+
+    async def test_connection(
+        self,
+        phone_number_id: str = "",
+        access_token: str = "",
+    ) -> dict:
+        id_inst = (phone_number_id or self.default_id_instance or "").strip()
+        tok = (access_token or self.default_token or "").strip()
+
+        if not id_inst or not tok:
+            return {"success": False, "message": "idInstance and apiTokenInstance must both be provided."}
+
+        host = get_greenapi_host(id_inst)
+        state_url = f"https://{host}/waInstance{id_inst}/getStateInstance/{tok}"
+        settings_url = f"https://{host}/waInstance{id_inst}/getWaSettings/{tok}"
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.get(state_url)
+                if res.status_code == 200:
+                    state_data = res.json()
+                    st = state_data.get("stateInstance")
+                    if st == "authorized":
+                        set_res = await client.get(settings_url)
+                        phone = "Linked WhatsApp Phone"
+                        if set_res.status_code == 200:
+                            s_data = set_res.json()
+                            phone = s_data.get("phone") or phone
+                        return {
+                            "success": True,
+                            "state": "authorized",
+                            "phone": phone,
+                            "message": f"Green-API Connected! Authorized as +{phone}",
+                            "details": state_data,
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "state": st,
+                            "message": f"Green-API state is '{st}'. Please link your WhatsApp in the Green-API console.",
+                            "details": state_data,
+                        }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"Green-API returned HTTP {res.status_code}: {res.text}",
+                    }
+        except Exception as exc:
+            return {"success": False, "message": f"Green-API connection error: {str(exc)}"}
+
+
 class MetaCloudWhatsAppGateway(BaseWhatsAppGateway):
     """
     Official Meta WhatsApp Cloud API Gateway (Graph API v21.0).
@@ -444,31 +641,26 @@ def get_whatsapp_gateway(gateway_type: Optional[str] = None) -> BaseWhatsAppGate
     """Factory to create configured gateway with resilient fallback."""
     from app.services.whatsapp_web_session import is_session_connected
 
-    mode = (gateway_type or settings.WHATSAPP_GATEWAY_TYPE or "meta").strip().lower()
+    mode = (gateway_type or settings.WHATSAPP_GATEWAY_TYPE or "greenapi").strip().lower()
 
-    # 1. WhatsApp Web QR Gateway aliases
-    if mode in ("whatsapp_web_qr", "web", "whatsapp_web", "baileys", "qr", "web_qr", "qr_gateway"):
+    # 1. Green-API (Real WhatsApp Delivery via Linked Phone)
+    if mode in ("greenapi", "green_api", "green", "green-api"):
+        return GreenApiWhatsAppGateway()
+
+    # 2. WhatsApp Web QR Gateway aliases
+    elif mode in ("whatsapp_web_qr", "web", "whatsapp_web", "baileys", "qr", "web_qr", "qr_gateway"):
         return WhatsAppWebGateway()
 
-    # 2. Simulated Mock Gateway
+    # 3. Simulated Mock Gateway
     elif mode in ("mock", "simulated", "dry_run"):
         return MockWhatsAppGateway()
 
-    # 3. Meta Cloud API Gateway
+    # 4. Meta Cloud API Gateway
     elif mode in ("meta", "meta_cloud_api", "cloud_api"):
-        # If user selected Meta Cloud API but has no credentials and WhatsApp Web is active,
-        # seamlessly use WhatsAppWebGateway so broadcasts do not block
-        has_meta_creds = bool(settings.META_PHONE_NUMBER_ID and settings.META_WHATSAPP_TOKEN)
-        if not has_meta_creds and is_session_connected():
-            logger.info("Meta credentials absent but WhatsApp Web is connected. Routing via WhatsAppWebGateway.")
-            return WhatsAppWebGateway()
         return MetaCloudWhatsAppGateway()
 
-    # 4. Fallback: if WhatsApp Web session is currently active, use it
-    if is_session_connected():
-        return WhatsAppWebGateway()
-
-    return MetaCloudWhatsAppGateway()
+    # 5. Fallback: default to Green-API
+    return GreenApiWhatsAppGateway()
 
 
 async def send_interactive_buttons(

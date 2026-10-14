@@ -65,13 +65,23 @@ async def run_local_test(to: str, message: str, gateway: str):
     print(f"=======================================================\n")
 
     from app.services.whatsapp_service import (
+        GreenApiWhatsAppGateway,
         MetaCloudWhatsAppGateway,
         MockWhatsAppGateway,
         WhatsAppWebGateway,
         get_whatsapp_gateway,
     )
 
-    if gateway == "web":
+    if gateway == "greenapi":
+        print("[1/2] Checking Green-API instance authorization...")
+        gw = GreenApiWhatsAppGateway()
+        status_check = await gw.test_connection()
+        print(f"[*] Green-API Status: {json.dumps(status_check, indent=2)}")
+
+        print(f"\n[2/2] Attempting real message dispatch to {to} via Green-API...")
+        result = await gw.send_text_message(to_phone=to, message=message)
+
+    elif gateway == "web":
         print("[1/2] Connecting to local Baileys WebSocket bridge at http://127.0.0.1:3001/status...")
         gw = WhatsAppWebGateway()
         status_check = await gw.test_connection()
@@ -133,9 +143,9 @@ def main():
     )
     parser.add_argument(
         "--gateway",
-        choices=["web", "meta", "mock", "auto"],
-        default="web",
-        help="WhatsApp gateway to use (default: web)",
+        choices=["greenapi", "web", "meta", "mock", "auto"],
+        default="greenapi",
+        help="WhatsApp gateway to use (default: greenapi)",
     )
     parser.add_argument(
         "--url",

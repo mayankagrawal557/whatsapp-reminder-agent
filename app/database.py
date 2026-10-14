@@ -509,3 +509,16 @@ async def init_db() -> None:
             )
             session.add(sample_campaign)
             await session.commit()
+
+        # Pre-populate Green-API credentials and active gateway mode
+        await set_user_setting(session, demo_user.id, "greenapi_id_instance", "710722761375")
+        await set_user_setting(session, demo_user.id, "greenapi_token", "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4")
+        await set_user_setting(session, demo_user.id, "gateway_mode", "greenapi")
+        await set_user_setting(session, demo_user.id, "whatsapp_gateway_type", "greenapi")
+
+        await set_setting(session, "greenapi_id_instance", "710722761375")
+        await set_setting(session, "greenapi_token", "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4")
+        await set_setting(session, "gateway_mode", "greenapi")
+        await set_setting(session, "whatsapp_gateway_type", "greenapi")
+        await session.commit()
+

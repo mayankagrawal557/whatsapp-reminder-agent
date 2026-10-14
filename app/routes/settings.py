@@ -18,8 +18,10 @@ from app.database import (
 from app.schemas import SettingsPayload, SettingsResponse
 from app.services.gemini_service import gemini_service
 from app.services.whatsapp_service import (
+    GreenApiWhatsAppGateway,
     MetaCloudWhatsAppGateway,
     MockWhatsAppGateway,
+    WhatsAppWebGateway,
 )
 
 logger = logging.getLogger("whatsapp_ai.routes.settings")
@@ -44,6 +46,8 @@ async def get_settings(
     """
     stored = await get_user_settings_dict(db, current_user.id)
 
+    greenapi_id = stored.get("greenapi_id_instance") or settings.GREENAPI_ID_INSTANCE or "710722761375"
+    raw_greenapi_token = stored.get("greenapi_token") or settings.GREENAPI_TOKEN or "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4"
     phone_id = stored.get("meta_phone_number_id") or settings.META_PHONE_NUMBER_ID or ""
     raw_token = stored.get("meta_whatsapp_token") or settings.META_WHATSAPP_TOKEN or ""
     raw_gemini_key = stored.get("gemini_api_key") or settings.GEMINI_API_KEY or ""
@@ -51,12 +55,14 @@ async def get_settings(
     business_name = stored.get("business_name") or current_user.business_name or settings.DEFAULT_BUSINESS_NAME
     business_type = stored.get("business_type") or current_user.business_type or settings.DEFAULT_BUSINESS_TYPE
     default_tone = stored.get("default_tone") or "friendly"
-    gateway_type = stored.get("whatsapp_gateway_type") or settings.WHATSAPP_GATEWAY_TYPE
+    gateway_type = stored.get("whatsapp_gateway_type") or stored.get("gateway_mode") or settings.WHATSAPP_GATEWAY_TYPE or "greenapi"
     default_country_code = stored.get("default_country_code") or settings.DEFAULT_COUNTRY_CODE or "+91"
     logo_url = current_user.logo_url or stored.get("logo_url") or None
-    brand_color = current_user.brand_color or stored.get("brand_color") or "#10b981"
+    brand_color = current_user.brand_color or stored.get("brand_color") or "#0d9488"
 
     return SettingsResponse(
+        greenapi_id_instance=greenapi_id,
+        greenapi_token_masked=mask_token(raw_greenapi_token),
         meta_phone_number_id=phone_id,
         meta_whatsapp_token_masked=mask_token(raw_token),
         gemini_api_key_masked=mask_token(raw_gemini_key),
@@ -68,6 +74,7 @@ async def get_settings(
         default_country_code=default_country_code,
         logo_url=logo_url,
         brand_color=brand_color,
+        is_greenapi_configured=bool(greenapi_id and raw_greenapi_token),
         is_meta_configured=bool(phone_id and raw_token),
         is_gemini_configured=bool(raw_gemini_key),
     )
@@ -84,26 +91,36 @@ async def update_settings(
     """
     stored = await get_user_settings_dict(db, current_user.id)
 
+    greenapi_id = payload.greenapi_id_instance.strip() if payload.greenapi_id_instance else ""
+    greenapi_tok = payload.greenapi_token.strip() if payload.greenapi_token else ""
     phone_id = payload.meta_phone_number_id.strip() if payload.meta_phone_number_id else ""
     token = payload.meta_whatsapp_token.strip() if payload.meta_whatsapp_token else ""
     gemini_key = payload.gemini_api_key.strip() if payload.gemini_api_key else ""
 
+    if greenapi_tok and "..." in greenapi_tok:
+        greenapi_tok = stored.get("greenapi_token", "")
     if token and "..." in token:
         token = stored.get("meta_whatsapp_token", "")
     if gemini_key and "..." in gemini_key:
         gemini_key = stored.get("gemini_api_key", "")
 
+    if greenapi_id:
+        await set_user_setting(db, current_user.id, "greenapi_id_instance", greenapi_id)
+    if greenapi_tok:
+        await set_user_setting(db, current_user.id, "greenapi_token", greenapi_tok)
     await set_user_setting(db, current_user.id, "meta_phone_number_id", phone_id)
     if token:
         await set_user_setting(db, current_user.id, "meta_whatsapp_token", token)
     if gemini_key:
         await set_user_setting(db, current_user.id, "gemini_api_key", gemini_key)
 
+    gw_type = payload.whatsapp_gateway_type or "greenapi"
     await set_user_setting(db, current_user.id, "gemini_model", payload.gemini_model or "gemini-1.5-flash")
     await set_user_setting(db, current_user.id, "business_name", payload.business_name or current_user.business_name)
     await set_user_setting(db, current_user.id, "business_type", payload.business_type or current_user.business_type)
     await set_user_setting(db, current_user.id, "default_tone", payload.default_tone or "friendly")
-    await set_user_setting(db, current_user.id, "whatsapp_gateway_type", payload.whatsapp_gateway_type or "meta")
+    await set_user_setting(db, current_user.id, "whatsapp_gateway_type", gw_type)
+    await set_user_setting(db, current_user.id, "gateway_mode", gw_type)
     await set_user_setting(db, current_user.id, "default_country_code", payload.default_country_code or "+91")
 
     # Update User record business & branding info
@@ -115,7 +132,7 @@ async def update_settings(
         current_user.logo_url = payload.logo_url.strip() or None
         await set_user_setting(db, current_user.id, "logo_url", current_user.logo_url)
     if payload.brand_color is not None:
-        current_user.brand_color = payload.brand_color.strip() or "#10b981"
+        current_user.brand_color = payload.brand_color.strip() or "#0d9488"
         await set_user_setting(db, current_user.id, "brand_color", current_user.brand_color)
 
     await db.commit()
@@ -175,20 +192,55 @@ async def update_branding_only(
     }
 
 
-@router.post("/test-whatsapp", summary="Test WhatsApp Cloud API credentials")
+@router.post("/test-whatsapp", summary="Test WhatsApp Gateway credentials")
 async def test_whatsapp_connection(
     payload: SettingsPayload,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     stored = await get_user_settings_dict(db, current_user.id)
+    gateway_type = (
+        payload.whatsapp_gateway_type
+        or stored.get("whatsapp_gateway_type")
+        or stored.get("gateway_mode")
+        or settings.WHATSAPP_GATEWAY_TYPE
+        or "greenapi"
+    ).lower()
+
+    # 1. Green-API (Default)
+    if gateway_type in ("greenapi", "green_api", "green", "green-api"):
+        id_inst = (
+            payload.greenapi_id_instance
+            or stored.get("greenapi_id_instance")
+            or settings.GREENAPI_ID_INSTANCE
+            or "710722761375"
+        )
+        tok = (
+            payload.greenapi_token
+            or stored.get("greenapi_token")
+            or settings.GREENAPI_TOKEN
+            or "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4"
+        )
+        if tok and "..." in tok:
+            tok = stored.get("greenapi_token") or settings.GREENAPI_TOKEN
+        gw = GreenApiWhatsAppGateway(id_inst, tok)
+        return await gw.test_connection(id_inst, tok)
+
+    # 2. Mock Mode
+    if gateway_type in ("mock", "simulated", "dry_run"):
+        mock_gw = MockWhatsAppGateway()
+        return await mock_gw.test_connection("", "")
+
+    # 3. WhatsApp Web QR
+    if gateway_type in ("whatsapp_web_qr", "web", "baileys"):
+        web_gw = WhatsAppWebGateway()
+        return await web_gw.test_connection()
+
+    # 4. Meta Cloud API
     phone_id = payload.meta_phone_number_id or stored.get("meta_phone_number_id") or settings.META_PHONE_NUMBER_ID or ""
     token = payload.meta_whatsapp_token or stored.get("meta_whatsapp_token") or settings.META_WHATSAPP_TOKEN or ""
-    gateway_type = payload.whatsapp_gateway_type or stored.get("whatsapp_gateway_type") or settings.WHATSAPP_GATEWAY_TYPE
-
-    if gateway_type == "mock":
-        mock_gw = MockWhatsAppGateway()
-        return await mock_gw.test_connection(phone_id, token)
+    if token and "..." in token:
+        token = stored.get("meta_whatsapp_token", "")
 
     if not phone_id or not token:
         raise HTTPException(
@@ -197,8 +249,34 @@ async def test_whatsapp_connection(
         )
 
     meta_gw = MetaCloudWhatsAppGateway()
-    result = await meta_gw.test_connection(phone_id, token)
-    return result
+    return await meta_gw.test_connection(phone_id, token)
+
+
+@router.post("/test-greenapi", summary="Test Green-API WhatsApp connection")
+async def test_greenapi_connection(
+    payload: Optional[SettingsPayload] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stored = await get_user_settings_dict(db, current_user.id)
+    id_inst = (
+        (payload.greenapi_id_instance if payload else None)
+        or stored.get("greenapi_id_instance")
+        or settings.GREENAPI_ID_INSTANCE
+        or "710722761375"
+    )
+    tok = (
+        (payload.greenapi_token if payload else None)
+        or stored.get("greenapi_token")
+        or settings.GREENAPI_TOKEN
+        or "d8dd5c9670e143359a359e3c83daa38b167180dbe7314e2aa4"
+    )
+    if tok and "..." in tok:
+        tok = stored.get("greenapi_token") or settings.GREENAPI_TOKEN
+
+    gw = GreenApiWhatsAppGateway(id_inst, tok)
+    return await gw.test_connection(id_inst, tok)
+
 
 
 @router.post("/test-gemini", summary="Test Google Gemini API key")
