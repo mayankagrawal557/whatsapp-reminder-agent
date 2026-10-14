@@ -65,8 +65,12 @@ async def create_campaign(
     )
     recipients_count = doc_count_res.scalar() or 0
 
-    if payload.send_immediately or payload.schedule_type == "ONE_TIME" or payload.frequency_type == "ONE_TIME":
+    if payload.send_immediately:
+        next_run = None
+        campaign_status = "DISPATCHING"
+    elif payload.schedule_type == "ONE_TIME" or payload.frequency_type == "ONE_TIME":
         next_run = now_utc
+        campaign_status = "ACTIVE"
     else:
         next_run = calculate_next_run_time(
             cron_schedule=payload.cron_schedule,
@@ -77,6 +81,7 @@ async def create_campaign(
             scheduled_day_of_week=payload.scheduled_day_of_week,
             scheduled_month_dates=payload.scheduled_month_dates,
         )
+        campaign_status = "ACTIVE"
 
     campaign = BroadcastCampaign(
         user_id=current_user.id,
@@ -94,7 +99,7 @@ async def create_campaign(
         scheduled_day_of_week=payload.scheduled_day_of_week or "monday",
         scheduled_month_dates=payload.scheduled_month_dates or "1, 16",
         next_run_at=next_run,
-        status="ACTIVE",
+        status=campaign_status,
         total_recipients=recipients_count,
         total_sent=0,
         total_failed=0,
@@ -130,6 +135,17 @@ async def blast_now(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found.")
 
+    if camp.status == "DISPATCHING":
+        return {
+            "success": False,
+            "message": "Campaign is already dispatching right now. Please wait for it to complete.",
+            "campaign_id": campaign_id,
+        }
+
+    camp.status = "DISPATCHING"
+    camp.next_run_at = None
+    await db.commit()
+
     blast_result = await execute_campaign_broadcast(campaign_id, db)
     sent_cnt = blast_result.get('batch_sent', blast_result.get('sent', 0))
     failed_cnt = blast_result.get('batch_failed', blast_result.get('failed', 0))
@@ -157,6 +173,9 @@ async def toggle_campaign_status(
     camp = res.scalar_one_or_none()
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found.")
+
+    if camp.status == "DISPATCHING":
+        raise HTTPException(status_code=400, detail="Cannot change status while campaign is actively dispatching.")
 
     if camp.status == "ACTIVE":
         camp.status = "PAUSED"

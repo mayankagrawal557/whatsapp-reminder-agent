@@ -1740,7 +1740,13 @@ Clinical Outreach Desk, {centre_name}</textarea>
             </td>
             <td class="py-3 px-4">
               <button onclick="toggleCampaignStatus('${c.id}')" class="px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                c.status === 'ACTIVE'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : c.status === 'DISPATCHING'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse'
+                  : c.status === 'COMPLETED'
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                  : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
               }">
                 ${c.status}
               </button>

@@ -26,6 +26,14 @@ const __dirname = path.dirname(__filename);
 const AUTH_DIR = path.join(__dirname, 'auth_info_baileys');
 const PORT = process.env.WA_BRIDGE_PORT || 3001;
 
+// Global process exception handlers to prevent Baileys decryption crashes
+process.on('uncaughtException', (err) => {
+  console.error('[WA-WEB-BRIDGE] Uncaught Exception:', err && err.message ? err.message : err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[WA-WEB-BRIDGE] Unhandled Rejection:', reason && reason.message ? reason.message : reason);
+});
+
 // Global Bridge State
 let sock = null;
 let currentQR = null;
