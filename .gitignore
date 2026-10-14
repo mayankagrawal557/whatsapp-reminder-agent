@@ -8,6 +8,12 @@ venv/
 env/
 ENV/
 .venv/
+node_modules/
+*/node_modules/
+package-lock.json
+*/package-lock.json
+auth_info_baileys/
+*/auth_info_baileys/
 
 # Environment variables & secrets
 .env

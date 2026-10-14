@@ -172,6 +172,17 @@ async def run_broadcast_tests():
         assert r_blast.status_code == 200
         print(f"  [OK] Re-blast triggered: {r_blast.json()['message']}")
 
+        # 13. Test WhatsApp Web QR-based Gateway Endpoints
+        print("\n[13] Testing WhatsApp Web QR Gateway (/api/whatsapp-web/status & /api/whatsapp-web/start):")
+        r_web_status = await client.get("/api/whatsapp-web/status")
+        assert r_web_status.status_code == 200
+        web_data = r_web_status.json()
+        print(f"  [OK] WhatsApp Web Status: {web_data.get('status')}")
+
+        r_web_start = await client.post("/api/whatsapp-web/start")
+        assert r_web_start.status_code == 200
+        print(f"  [OK] WhatsApp Web QR Start triggered: {r_web_start.json().get('message')}")
+
     print("\n==================================================================")
     print("ALL AROVIDA DOCTOR BROADCAST ENGINE TESTS PASSED SUCCESSFULLY! ✓")
     print("==================================================================")

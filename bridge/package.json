@@ -1,0 +1,15 @@
+{
+  "name": "arovida-wa-web-bridge",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Lightweight WhatsApp Web QR-Code Bridge for Arovida PET-CT Centre",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.12",
+    "qrcode": "^1.5.4",
+    "pino": "^9.6.0"
+  }
+}

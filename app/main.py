@@ -26,7 +26,8 @@ from app.database import (
     get_db,
     init_db,
 )
-from app.routes import auth, campaigns, clients, doctors, logs, reminders, settings as settings_route, webhooks
+from app.routes import auth, campaigns, clients, doctors, logs, reminders, settings as settings_route, webhooks, whatsapp_web
+from app.routes.whatsapp_web import start_local_bridge_process
 from app.schemas import HealthResponse
 from app.scheduler import is_scheduler_running, start_scheduler, stop_scheduler
 
@@ -54,6 +55,9 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting APScheduler background dispatch worker...")
     start_scheduler()
+
+    logger.info("Initializing WhatsApp Web Baileys bridge supervisor...")
+    start_local_bridge_process()
 
     yield
 
@@ -94,6 +98,7 @@ app.include_router(auth.router)
 app.include_router(doctors.router)
 app.include_router(campaigns.router)
 app.include_router(logs.router)
+app.include_router(whatsapp_web.router)
 app.include_router(settings_route.router)
 app.include_router(webhooks.router)
 app.include_router(reminders.router)

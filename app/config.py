@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-1.5-flash"
     GEMINI_TIMEOUT_SECONDS: float = 12.0
 
-    # WhatsApp Gateway Selection: "meta", "bridge", or "mock" (dry-run)
-    WHATSAPP_GATEWAY_TYPE: Literal["meta", "bridge", "mock"] = "meta"
+    # WhatsApp Gateway Selection: "meta", "web" (QR-based), "bridge", or "mock" (dry-run)
+    WHATSAPP_GATEWAY_TYPE: str = "meta"
+    WA_BRIDGE_URL: str = "http://127.0.0.1:3001"
 
     # Meta Cloud API Credentials (Official Graph API)
     META_PHONE_NUMBER_ID: Optional[str] = None
@@ -38,8 +39,8 @@ class Settings(BaseSettings):
     META_VERIFY_TOKEN: str = "my_secure_webhook_verify_token"
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = "my_secure_webhook_verify_token"
 
-    # Open-Source QR Bridge Settings (e.g. WPPConnect / Baileys / Evolution API)
-    BRIDGE_API_URL: Optional[str] = "http://localhost:8080"
+    # Open-Source QR Bridge Settings (e.g. Node Baileys / WPPConnect)
+    BRIDGE_API_URL: Optional[str] = "http://127.0.0.1:3001"
     BRIDGE_API_KEY: Optional[str] = None
 
     # Anti-Ban & Scheduler Controls

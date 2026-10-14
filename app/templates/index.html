@@ -371,11 +371,11 @@ Clinical Outreach Desk, {centre_name}</textarea>
                   Schedule Frequency
                 </label>
                 <select id="composer-frequency" onchange="onScheduleFrequencyChange(this.value)" class="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
+                  <option value="every_monday" selected>📅 Every Monday (10:00 AM)</option>
+                  <option value="dates_1_and_16">🗓️ 1st & 16th of Every Month</option>
                   <option value="immediate">⚡ 1-Click Instant Blast (Send Immediately)</option>
-                  <option value="every_monday" selected>📅 Every Monday (Scan Slots Routine)</option>
-                  <option value="dates_1_and_16">🗓️ 1st & 16th of Every Month (Bi-monthly)</option>
-                  <option value="every_friday">🗓️ Every Friday (Weekend Update)</option>
-                  <option value="daily">☀️ Daily (Morning Dispatch)</option>
+                  <option value="every_friday">🗓️ Every Friday (10:00 AM)</option>
+                  <option value="daily">☀️ Daily (10:00 AM)</option>
                 </select>
               </div>
 
@@ -646,7 +646,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
           <table class="w-full text-left text-xs border-collapse">
             <thead>
               <tr class="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                <th class="py-3 px-4">Referring Doctor</th>
+                <th class="py-3 px-4">Doctor Name & Specialty</th>
                 <th class="py-3 px-4">WhatsApp Phone</th>
                 <th class="py-3 px-4">Specialty</th>
                 <th class="py-3 px-4">Hospital / Affiliation</th>
@@ -701,7 +701,7 @@ Clinical Outreach Desk, {centre_name}</textarea>
             <thead>
               <tr class="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                 <th class="py-3 px-4">Dispatched At</th>
-                <th class="py-3 px-4">Recipient Doctor</th>
+                <th class="py-3 px-4">Doctor Name & Specialty</th>
                 <th class="py-3 px-4">Phone Number</th>
                 <th class="py-3 px-4">Campaign Title</th>
                 <th class="py-3 px-4">Status</th>
@@ -720,6 +720,70 @@ Clinical Outreach Desk, {centre_name}</textarea>
       <!-- SETTINGS & CREDENTIALS GRID -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
+        <!-- WHATSAPP WEB QR-BASED GATEWAY (NO META TOKEN REQUIRED) -->
+        <div class="stripe-card p-6 rounded-2xl border border-teal-500/30 dark:border-teal-500/30 shadow-card space-y-4 ring-1 ring-teal-500/20">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>📲 WhatsApp Web QR Gateway</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 uppercase tracking-wider">No Token Required</span>
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Link personal or centre WhatsApp via QR scan to dispatch broadcasts directly</p>
+            </div>
+            <span id="wa-web-status-badge" class="text-[10px] px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              Disconnected
+            </span>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Connected Banner -->
+            <div id="wa-web-connected-box" class="hidden p-3.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                <div>
+                  <div class="text-xs font-bold text-teal-900 dark:text-teal-200" id="wa-web-connected-phone">Connected as +91...</div>
+                  <div class="text-[11px] text-teal-700/80 dark:text-teal-400">All broadcast dispatches route directly through your linked WhatsApp.</div>
+                </div>
+              </div>
+              <button type="button" onclick="disconnectWhatsAppWeb()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition border border-rose-200 dark:border-rose-800">
+                Disconnect
+              </button>
+            </div>
+
+            <!-- QR Code Display Container -->
+            <div id="wa-web-qr-box" class="hidden p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-3">
+              <div class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Scan with your phone's WhatsApp:
+              </div>
+              
+              <!-- QR Image -->
+              <div class="w-56 h-56 bg-white p-2 rounded-xl border border-slate-300 shadow-md flex items-center justify-center relative">
+                <img id="wa-web-qr-img" src="" alt="WhatsApp Login QR" class="w-full h-full object-contain">
+                <div id="wa-web-qr-loader" class="absolute inset-0 bg-white/90 dark:bg-slate-900/90 flex flex-col items-center justify-center space-y-2 hidden">
+                  <svg class="animate-spin w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                  <span class="text-xs text-slate-600 dark:text-slate-300 font-medium">Generating QR Code...</span>
+                </div>
+              </div>
+
+              <!-- Steps Guide -->
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1 text-left max-w-xs">
+                <p>1. Open <strong>WhatsApp</strong> on your phone</p>
+                <p>2. Tap <strong>Linked Devices</strong> (in Settings on iOS, or ⋮ Menu on Android)</p>
+                <p>3. Tap <strong>Link a Device</strong> and point your camera at this QR code</p>
+              </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="flex items-center justify-between pt-1">
+              <span id="wa-web-feedback" class="text-xs text-slate-500 font-medium">Baileys Multi-Device Bridge</span>
+              <button type="button" id="btn-gen-qr" onclick="generateWhatsAppWebQR()" class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                <span>Generate WhatsApp Login QR</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- WHATSAPP CLOUD API & GATEWAY CONFIG -->
         <div class="stripe-card p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-card space-y-4">
           <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
@@ -738,7 +802,8 @@ Clinical Outreach Desk, {centre_name}</textarea>
             <div>
               <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Gateway Mode</label>
               <select id="cfg-gateway-type" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white">
-                <option value="meta">Meta WhatsApp Cloud API (Production)</option>
+                <option value="web">📲 WhatsApp Web QR Gateway (Linked Personal / Clinic WhatsApp — No Meta Token)</option>
+                <option value="meta">Meta WhatsApp Cloud API (Production — Requires Token & Phone ID)</option>
                 <option value="mock">Dry-Run / Simulated Mock Mode (Development)</option>
               </select>
             </div>
@@ -1277,10 +1342,10 @@ Clinical Outreach Desk, {centre_name}</textarea>
         const isActive = c.status === 'ACTIVE';
 
         const freqLabels = {
-          'every_monday': 'Every Monday',
-          'dates_1_and_16': '1st & 16th of Month',
-          'every_friday': 'Every Friday',
-          'daily': 'Daily',
+          'every_monday': 'Every Monday (10:00 AM)',
+          'dates_1_and_16': '1st & 16th of Every Month',
+          'every_friday': 'Every Friday (10:00 AM)',
+          'daily': 'Daily (10:00 AM)',
           'immediate': 'One-Time Blast'
         };
         const freqText = freqLabels[c.cron_schedule] || c.cron_schedule;
@@ -1708,6 +1773,9 @@ Clinical Outreach Desk, {centre_name}</textarea>
         // Update Centre Header Titles
         document.getElementById('brand-clinic-title').innerText = cfg.business_name || 'Arovida PET-CT Centre';
         document.getElementById('tenant-name').innerText = cfg.business_name || 'Arovida PET-CT';
+
+        // Check WhatsApp Web QR Gateway status
+        await checkWhatsAppWebStatus();
       } catch (err) {
         console.error(err);
       }
@@ -1780,6 +1848,130 @@ Clinical Outreach Desk, {centre_name}</textarea>
         showToast(data.message);
       } catch (err) {
         feedback.innerText = err.message;
+      }
+    }
+
+    // =========================================================================
+    // WHATSAPP WEB QR GATEWAY JAVASCRIPT CONTROLLER
+    // =========================================================================
+    let waWebPollInterval = null;
+
+    async function checkWhatsAppWebStatus() {
+      try {
+        const res = await fetch('/api/whatsapp-web/status');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const badge = document.getElementById('wa-web-status-badge');
+        const connectedBox = document.getElementById('wa-web-connected-box');
+        const connectedPhone = document.getElementById('wa-web-connected-phone');
+        const qrBox = document.getElementById('wa-web-qr-box');
+        const qrImg = document.getElementById('wa-web-qr-img');
+        const qrLoader = document.getElementById('wa-web-qr-loader');
+        const btnGen = document.getElementById('btn-gen-qr');
+        const topGatewayLabel = document.getElementById('gateway-label');
+        const topGatewayDot = document.getElementById('gateway-dot');
+
+        if (data.status === 'connected') {
+          if (badge) {
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
+            badge.innerText = `Connected (${data.user?.phone || 'Personal WhatsApp'})`;
+          }
+          if (connectedBox) connectedBox.classList.remove('hidden');
+          if (connectedPhone) connectedPhone.innerText = `Connected as ${data.user?.phone || 'Personal WhatsApp'} (${data.user?.name || 'Arovida Broadcast'})`;
+          if (qrBox) qrBox.classList.add('hidden');
+          if (btnGen) {
+            btnGen.innerHTML = `<span>Refresh QR</span>`;
+          }
+          if (topGatewayLabel) topGatewayLabel.innerText = `WhatsApp Web: ${data.user?.phone || 'Linked'}`;
+          if (topGatewayDot) topGatewayDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+
+          if (waWebPollInterval) {
+            clearInterval(waWebPollInterval);
+            waWebPollInterval = null;
+          }
+        } else if (data.status === 'qr_ready' && data.qr_code) {
+          if (badge) {
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse';
+            badge.innerText = 'QR Ready — Scan with WhatsApp';
+          }
+          if (connectedBox) connectedBox.classList.add('hidden');
+          if (qrBox) qrBox.classList.remove('hidden');
+          if (qrLoader) qrLoader.classList.add('hidden');
+          if (qrImg) qrImg.src = data.qr_code;
+          if (btnGen) btnGen.innerText = 'Regenerate QR Code';
+        } else if (data.status === 'connecting' || data.is_starting) {
+          if (badge) {
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 animate-pulse';
+            badge.innerText = 'Starting WhatsApp Web...';
+          }
+          if (qrBox) qrBox.classList.remove('hidden');
+          if (qrLoader) qrLoader.classList.remove('hidden');
+        } else {
+          if (badge) {
+            badge.className = 'text-[10px] px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+            badge.innerText = 'Disconnected';
+          }
+          if (connectedBox) connectedBox.classList.add('hidden');
+          if (qrBox) qrBox.classList.add('hidden');
+          if (btnGen) {
+            btnGen.innerHTML = `
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+              <span>Generate WhatsApp Login QR</span>
+            `;
+          }
+        }
+      } catch (err) {
+        console.error('Error checking WhatsApp Web status:', err);
+      }
+    }
+
+    async function generateWhatsAppWebQR() {
+      const btn = document.getElementById('btn-gen-qr');
+      const qrBox = document.getElementById('wa-web-qr-box');
+      const qrLoader = document.getElementById('wa-web-qr-loader');
+      if (btn) btn.disabled = true;
+      if (qrBox) qrBox.classList.remove('hidden');
+      if (qrLoader) qrLoader.classList.remove('hidden');
+      showToast('Generating WhatsApp Web Login QR code...', 'info');
+
+      try {
+        const res = await fetch('/api/whatsapp-web/start', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to start WhatsApp Web session');
+
+        const gwSelect = document.getElementById('cfg-gateway-type');
+        if (gwSelect) gwSelect.value = 'web';
+
+        if (waWebPollInterval) clearInterval(waWebPollInterval);
+        waWebPollInterval = setInterval(async () => {
+          await checkWhatsAppWebStatus();
+        }, 2000);
+
+        await checkWhatsAppWebStatus();
+      } catch (err) {
+        showToast(err.message, 'error');
+        if (qrBox) qrBox.classList.add('hidden');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function disconnectWhatsAppWeb() {
+      if (!confirm('Disconnect your linked WhatsApp Web session?')) return;
+      showToast('Disconnecting WhatsApp Web session...', 'info');
+      try {
+        const res = await fetch('/api/whatsapp-web/logout', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Logout failed');
+        showToast('WhatsApp Web disconnected');
+        if (waWebPollInterval) {
+          clearInterval(waWebPollInterval);
+          waWebPollInterval = null;
+        }
+        await checkWhatsAppWebStatus();
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 

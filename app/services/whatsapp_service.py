@@ -313,10 +313,110 @@ class MockWhatsAppGateway(BaseWhatsAppGateway):
         }
 
 
+class WhatsAppWebGateway(BaseWhatsAppGateway):
+    """
+    WhatsApp Web QR-Code Gateway (powered by Node.js Baileys Bridge).
+    Connects to personal or business WhatsApp via QR code scan without requiring Meta tokens.
+    """
+
+    def __init__(self, bridge_url: Optional[str] = None):
+        self.bridge_url = (bridge_url or settings.WA_BRIDGE_URL or "http://127.0.0.1:3001").rstrip("/")
+
+    def clean_recipient_phone(self, phone: str) -> str:
+        digits = re.sub(r"\D", "", phone)
+        if len(digits) == 10 and settings.DEFAULT_COUNTRY_CODE:
+            code = re.sub(r"\D", "", settings.DEFAULT_COUNTRY_CODE)
+            digits = f"{code}{digits}"
+        return digits
+
+    async def send_text_message(
+        self,
+        to_phone: str,
+        message: str,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        clean_phone = self.clean_recipient_phone(to_phone)
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                res = await client.post(
+                    f"{self.bridge_url}/send",
+                    json={"to": clean_phone, "message": message},
+                )
+                data = res.json()
+                if res.status_code == 200 and data.get("success"):
+                    msg_id = data.get("message_id") or f"wa.web.{uuid.uuid4().hex[:12]}"
+                    logger.info(f"[WHATSAPP WEB] Dispatched to {clean_phone} via linked session (ID: {msg_id})")
+                    return WhatsAppSendResult(
+                        success=True,
+                        message_id=msg_id,
+                        raw_response=data,
+                    )
+                else:
+                    err = data.get("error") or "Failed to send via WhatsApp Web gateway"
+                    logger.error(f"[WHATSAPP WEB] Send failed to {clean_phone}: {err}")
+                    return WhatsAppSendResult(
+                        success=False,
+                        error_message=f"WhatsApp Web error: {err}",
+                        raw_response=data,
+                    )
+        except Exception as exc:
+            logger.error(f"[WHATSAPP WEB] Connection exception: {exc}")
+            return WhatsAppSendResult(
+                success=False,
+                error_message=f"WhatsApp Web Bridge unavailable: {str(exc)}",
+            )
+
+    async def send_interactive_buttons(
+        self,
+        to_phone: str,
+        body_text: str,
+        buttons_list: Optional[list] = None,
+        phone_number_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> WhatsAppSendResult:
+        buttons = buttons_list or [
+            {"type": "reply", "reply": {"id": "btn_confirm", "title": "✅ Confirm"}},
+            {"type": "reply", "reply": {"id": "btn_reschedule", "title": "📅 Reschedule"}},
+        ]
+        btn_prompts = []
+        for idx, btn in enumerate(buttons, 1):
+            title = btn.get("reply", {}).get("title") or f"Option {idx}"
+            btn_prompts.append(f"{idx}️⃣ {title}")
+
+        formatted_msg = f"{body_text}\n\n" + "\n".join(btn_prompts)
+        return await self.send_text_message(to_phone, formatted_msg)
+
+    async def test_connection(
+        self,
+        phone_number_id: str = "",
+        access_token: str = "",
+    ) -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.get(f"{self.bridge_url}/status")
+                if res.status_code == 200:
+                    data = res.json()
+                    st = data.get("status")
+                    if st == "connected":
+                        user = data.get("user") or {}
+                        phone = user.get("phone", "Linked Device")
+                        return {"success": True, "message": f"WhatsApp Web active! Connected as {phone}"}
+                    elif st == "qr_ready":
+                        return {"success": False, "message": "WhatsApp Web QR code ready. Please scan from Settings tab."}
+                    else:
+                        return {"success": False, "message": f"WhatsApp Web state: {st}. Click 'Generate WhatsApp Login QR' in Settings."}
+                return {"success": False, "message": f"Bridge returned status {res.status_code}"}
+        except Exception as exc:
+            return {"success": False, "message": f"Cannot reach WhatsApp Web bridge on {self.bridge_url}: {str(exc)}"}
+
+
 def get_whatsapp_gateway(gateway_type: Optional[str] = None) -> BaseWhatsAppGateway:
     """Factory to create configured gateway."""
     mode = (gateway_type or settings.WHATSAPP_GATEWAY_TYPE).lower()
-    if mode == "mock":
+    if mode in ("web", "baileys", "qr"):
+        return WhatsAppWebGateway()
+    elif mode == "mock":
         return MockWhatsAppGateway()
     return MetaCloudWhatsAppGateway()
 

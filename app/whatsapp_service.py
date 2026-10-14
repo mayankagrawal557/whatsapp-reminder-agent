@@ -7,6 +7,7 @@ from app.services.whatsapp_service import (
     MetaCloudWhatsAppGateway,
     MockWhatsAppGateway,
     WhatsAppSendResult,
+    WhatsAppWebGateway,
     get_whatsapp_gateway,
     whatsapp_gateway,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "MetaCloudWhatsAppGateway",
     "MockWhatsAppGateway",
     "WhatsAppSendResult",
+    "WhatsAppWebGateway",
     "get_whatsapp_gateway",
     "whatsapp_gateway",
 ]

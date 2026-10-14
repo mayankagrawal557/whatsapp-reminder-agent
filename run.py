@@ -10,6 +10,7 @@ Guarantees 24/7 uptime for http://127.0.0.1:8000:
 import importlib
 import logging
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -132,6 +133,18 @@ def run_supervisor(host: str = "127.0.0.1", port: int = 8000, reload: bool = Tru
                     time.sleep(1)
                     if not is_port_in_use(port, host):
                         break
+
+            # 3b. Launch Baileys WhatsApp Web Bridge (port 3001) if node is present
+            bridge_process = None
+            bridge_dir = ROOT_DIR / "bridge"
+            server_js = bridge_dir / "server.js"
+            if shutil.which("node") and server_js.exists() and not is_port_in_use(3001, "127.0.0.1"):
+                try:
+                    log_msg("SUPERVISOR", "Launching Baileys WhatsApp Web Bridge on http://127.0.0.1:3001...")
+                    cflags = 0x00000008 if sys.platform == "win32" else 0
+                    bridge_process = subprocess.Popen(["node", "server.js"], cwd=str(bridge_dir), creationflags=cflags)
+                except Exception as b_err:
+                    log_msg("SUPERVISOR", f"Warning: Could not launch Baileys bridge: {b_err}")
 
             # 4. Launch Uvicorn
             log_msg("SUPERVISOR", f"Launching Uvicorn server on http://{host}:{port} (reload={reload})...")
