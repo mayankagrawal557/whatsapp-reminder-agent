@@ -1640,7 +1640,12 @@ Clinical Outreach Desk, {centre_name}</textarea>
           body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = { detail: `Server response (${res.status}): ${res.statusText || 'Internal Server Error'}` };
+        }
         if (!res.ok) throw new Error(data.detail || 'Failed to create campaign');
 
         if (isImmediateBlast) {
@@ -1796,7 +1801,12 @@ Clinical Outreach Desk, {centre_name}</textarea>
       showToast('🚀 Dispatching broadcast in background...', 'info');
       try {
         const res = await fetch(`/api/campaigns/${campaignId}/blast-now`, { method: 'POST' });
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = { detail: `Server response (${res.status}): ${res.statusText || 'Internal Server Error'}` };
+        }
         if (!res.ok) throw new Error(data.detail || 'Blast failed');
         showToast(data.message || 'Broadcast blast started in background!');
         await loadCampaigns();

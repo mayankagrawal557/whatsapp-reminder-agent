@@ -44,6 +44,17 @@ async def list_campaigns(
     return res.scalars().all()
 
 
+async def _run_broadcast_in_background(campaign_id: str):
+    """Execute broadcast dispatch in background without blocking the HTTP request thread."""
+    async with AsyncSessionLocal() as session:
+        try:
+            logger.info(f"Starting background campaign execution for [{campaign_id}]")
+            await execute_campaign_broadcast(campaign_id, session)
+            logger.info(f"Background campaign execution for [{campaign_id}] completed.")
+        except Exception as exc:
+            logger.error(f"Error in background campaign broadcast [{campaign_id}]: {exc}", exc_info=True)
+
+
 @router.post("", response_model=CampaignResponse, status_code=status.HTTP_201_CREATED, summary="Create/Schedule broadcast campaign")
 async def create_campaign(
     payload: CampaignCreate,
@@ -108,17 +119,6 @@ async def create_campaign(
     db.add(campaign)
     await db.commit()
     await db.refresh(campaign)
-
-async def _run_broadcast_in_background(campaign_id: str):
-    """Execute broadcast dispatch in background without blocking the HTTP request thread."""
-    async with AsyncSessionLocal() as session:
-        try:
-            logger.info(f"Starting background campaign execution for [{campaign_id}]")
-            await execute_campaign_broadcast(campaign_id, session)
-            logger.info(f"Background campaign execution for [{campaign_id}] completed.")
-        except Exception as exc:
-            logger.error(f"Error in background campaign broadcast [{campaign_id}]: {exc}", exc_info=True)
-
 
     # If 1-click blast requested, execute in background so HTTP response returns immediately (<100ms)
     if payload.send_immediately:
