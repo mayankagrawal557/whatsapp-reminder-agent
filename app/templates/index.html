@@ -1644,7 +1644,8 @@ Clinical Outreach Desk, {centre_name}</textarea>
         if (!res.ok) throw new Error(data.detail || 'Failed to create campaign');
 
         if (isImmediateBlast) {
-          showToast(`⚡ Broadcast batch dispatched! Sent: ${data.total_sent}, Remaining: ${Math.max(0, data.total_recipients - data.total_sent)}`);
+          showToast(`🚀 1-Click Instant Blast started in background! Messages are dispatching safely.`);
+          startCampaignProgressPolling();
         } else {
           showToast('Broadcast campaign schedule saved successfully!');
         }
@@ -1663,6 +1664,25 @@ Clinical Outreach Desk, {centre_name}</textarea>
       }
     }
 
+    let campaignPollTimer = null;
+    function startCampaignProgressPolling() {
+      if (campaignPollTimer) return;
+      campaignPollTimer = setInterval(async () => {
+        try {
+          await loadCampaigns();
+          await loadKpiStats();
+          await loadDispatchLogs();
+          const hasDispatching = allCampaigns && allCampaigns.some(c => c.status === 'DISPATCHING');
+          if (!hasDispatching) {
+            clearInterval(campaignPollTimer);
+            campaignPollTimer = null;
+          }
+        } catch (e) {
+          console.debug('Campaign polling error:', e);
+        }
+      }, 3000);
+    }
+
     // Load Scheduled Campaigns
     async function loadCampaigns() {
       try {
@@ -1671,6 +1691,11 @@ Clinical Outreach Desk, {centre_name}</textarea>
         allCampaigns = await res.json();
         renderCampaignsTable(allCampaigns);
         document.getElementById('campaigns-count-badge').innerText = allCampaigns.length;
+
+        const hasDispatching = allCampaigns && allCampaigns.some(c => c.status === 'DISPATCHING');
+        if (hasDispatching && !campaignPollTimer) {
+          startCampaignProgressPolling();
+        }
       } catch (err) {
         document.getElementById('campaigns-table-body').innerHTML = `
           <tr><td colspan="7" class="py-6 text-center text-rose-500 font-medium">${err.message}</td></tr>
@@ -1768,15 +1793,16 @@ Clinical Outreach Desk, {centre_name}</textarea>
 
     async function blastCampaignNow(campaignId) {
       if (!confirm('Dispatch broadcast to all active referring doctors immediately?')) return;
-      showToast('Dispatching broadcast...', 'info');
+      showToast('🚀 Dispatching broadcast in background...', 'info');
       try {
         const res = await fetch(`/api/campaigns/${campaignId}/blast-now`, { method: 'POST' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Blast failed');
-        showToast(data.message || 'Broadcast blast dispatched successfully!');
+        showToast(data.message || 'Broadcast blast started in background!');
         await loadCampaigns();
         await loadKpiStats();
         await loadDispatchLogs();
+        startCampaignProgressPolling();
       } catch (err) {
         showToast(err.message, 'error');
       }

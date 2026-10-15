@@ -3,6 +3,7 @@ Broadcast Campaigns API Routes for Arovida PET-CT Centre.
 Handles campaign composition, recurring scheduling (Mondays, 1st & 16th),
 1-click blast dispatches, and Gemini AI copy polishing.
 """
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -12,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
-from app.database import BroadcastCampaign, DoctorContact, User, get_db
+from app.database import AsyncSessionLocal, BroadcastCampaign, DoctorContact, User, get_db
 from app.scheduler import calculate_next_run_time, execute_campaign_broadcast
 from app.schemas import (
     CampaignCreate,
@@ -108,11 +109,21 @@ async def create_campaign(
     await db.commit()
     await db.refresh(campaign)
 
-    # If 1-click blast requested, execute immediately
+async def _run_broadcast_in_background(campaign_id: str):
+    """Execute broadcast dispatch in background without blocking the HTTP request thread."""
+    async with AsyncSessionLocal() as session:
+        try:
+            logger.info(f"Starting background campaign execution for [{campaign_id}]")
+            await execute_campaign_broadcast(campaign_id, session)
+            logger.info(f"Background campaign execution for [{campaign_id}] completed.")
+        except Exception as exc:
+            logger.error(f"Error in background campaign broadcast [{campaign_id}]: {exc}", exc_info=True)
+
+
+    # If 1-click blast requested, execute in background so HTTP response returns immediately (<100ms)
     if payload.send_immediately:
-        logger.info(f"Triggering immediate 1-click blast for campaign [{campaign.id}]")
-        await execute_campaign_broadcast(campaign.id, db)
-        await db.refresh(campaign)
+        logger.info(f"Triggering immediate 1-click blast in background for campaign [{campaign.id}]")
+        asyncio.create_task(_run_broadcast_in_background(campaign.id))
 
     return campaign
 
@@ -125,6 +136,7 @@ async def blast_now(
 ):
     """
     Instantly trigger execution of a campaign broadcast to all active doctors.
+    Runs asynchronously in background to ensure zero UI freezing.
     """
     stmt = select(BroadcastCampaign).where(
         BroadcastCampaign.id == campaign_id,
@@ -138,7 +150,7 @@ async def blast_now(
     if camp.status == "DISPATCHING":
         return {
             "success": False,
-            "message": "Campaign is already dispatching right now. Please wait for it to complete.",
+            "message": "Campaign is already dispatching in the background. Please wait for it to complete.",
             "campaign_id": campaign_id,
         }
 
@@ -146,14 +158,15 @@ async def blast_now(
     camp.next_run_at = None
     await db.commit()
 
-    blast_result = await execute_campaign_broadcast(campaign_id, db)
-    sent_cnt = blast_result.get('batch_sent', blast_result.get('sent', 0))
-    failed_cnt = blast_result.get('batch_failed', blast_result.get('failed', 0))
-    rem_cnt = blast_result.get('remaining', 0)
-    blast_result["message"] = (
-        f"Batch dispatch executed: {sent_cnt} sent, {failed_cnt} failed. ({rem_cnt} remaining in queue)"
-    )
-    return blast_result
+    logger.info(f"Triggering blast-now in background for campaign [{campaign_id}]")
+    asyncio.create_task(_run_broadcast_in_background(campaign_id))
+
+    return {
+        "success": True,
+        "message": "Broadcast blast started in background! Messages are being dispatched with safety jitter.",
+        "campaign_id": campaign_id,
+        "status": "DISPATCHING",
+    }
 
 
 @router.patch("/{campaign_id}/toggle-status", response_model=CampaignResponse, summary="Pause or Resume campaign")
